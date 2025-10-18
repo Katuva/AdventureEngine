@@ -53,7 +53,7 @@ public class UseCommand : IGameCommand
             }
 
             // Load the unlocks room if needed
-            if (examinableObject != null && examinableObject.UnlocksRoomId.HasValue)
+            if (examinableObject is { UnlocksRoomId: not null })
             {
                 await gameState.Context.Entry(examinableObject)
                     .Reference(eo => eo.UnlocksRoom)

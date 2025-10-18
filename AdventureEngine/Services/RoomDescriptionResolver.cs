@@ -7,22 +7,15 @@ namespace AdventureEngine.Services;
 /// <summary>
 /// Resolves room descriptions based on game state conditions
 /// </summary>
-public class RoomDescriptionResolver
+public class RoomDescriptionResolver(AdventureDbContext context)
 {
-    private readonly AdventureDbContext _context;
-
-    public RoomDescriptionResolver(AdventureDbContext context)
-    {
-        _context = context;
-    }
-
     /// <summary>
     /// Get the appropriate room description based on current game state
     /// </summary>
     public async Task<string> GetRoomDescriptionAsync(int roomId, GameStateManager gameState)
     {
         // Get all descriptions for this room, ordered by priority (highest first)
-        var descriptions = await _context.RoomDescriptions
+        var descriptions = await context.RoomDescriptions
             .Include(rd => rd.RequiredItem)
             .Include(rd => rd.RequiredAction)
             .Where(rd => rd.RoomId == roomId)
@@ -32,7 +25,7 @@ public class RoomDescriptionResolver
         // If no conditional descriptions exist, fall back to room.Description
         if (descriptions.Count == 0)
         {
-            var room = await _context.Rooms.FindAsync(roomId);
+            var room = await context.Rooms.FindAsync(roomId);
             return room?.Description ?? "You are in a room.";
         }
 
@@ -46,7 +39,7 @@ public class RoomDescriptionResolver
         }
 
         // Fallback: return the room's default description
-        var fallbackRoom = await _context.Rooms.FindAsync(roomId);
+        var fallbackRoom = await context.Rooms.FindAsync(roomId);
         return fallbackRoom?.Description ?? "You are in a room.";
     }
 
@@ -107,7 +100,7 @@ public class RoomDescriptionResolver
                     return false;
                 }
 
-                var isCompleted = await _context.CompletedActions
+                var isCompleted = await context.CompletedActions
                     .AnyAsync(ca => ca.GameSaveId == gameState.CurrentSaveId &&
                                    ca.RoomActionId == desc.RequiredActionId.Value);
 

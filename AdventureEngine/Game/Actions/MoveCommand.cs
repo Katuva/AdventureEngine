@@ -3,18 +3,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AdventureEngine.Game.Actions;
 
-public class MoveCommand : IGameCommand
+public class MoveCommand(string direction) : IGameCommand
 {
-    private readonly string _direction;
-
-    public MoveCommand(string direction)
-    {
-        _direction = direction.ToLower();
-    }
-
-    public string Name => _direction;
-    public string Description => $"Move {_direction}";
-    public string[] Aliases => _direction switch
+    public string Name { get; } = direction.ToLower();
+    public string Description => $"Move {Name}";
+    public string[] Aliases => Name switch
     {
         "north" => ["n"],
         "south" => ["s"],
@@ -33,7 +26,7 @@ public class MoveCommand : IGameCommand
             return CommandResult.Error("You seem to be nowhere. This is a bug!");
         }
 
-        int? nextRoomId = _direction switch
+        var nextRoomId = Name switch
         {
             "north" => currentRoom.NorthRoomId,
             "south" => currentRoom.SouthRoomId,
@@ -46,7 +39,7 @@ public class MoveCommand : IGameCommand
 
         if (!nextRoomId.HasValue)
         {
-            return CommandResult.Error($"You can't go {_direction} from here.");
+            return CommandResult.Error($"You can't go {Name} from here.");
         }
 
         // Check if this room requires an examinable interaction to be unlocked
@@ -63,7 +56,7 @@ public class MoveCommand : IGameCommand
 
             if (!hasCompleted)
             {
-                return CommandResult.Error($"You can't go {_direction} from here.");
+                return CommandResult.Error($"You can't go {Name} from here.");
             }
         }
 
@@ -79,10 +72,10 @@ public class MoveCommand : IGameCommand
         var descriptionResolver = new RoomDescriptionResolver(gameState.Context);
         var description = await descriptionResolver.GetRoomDescriptionAsync(newRoom.Id, gameState);
 
-        var message = $"You move {_direction} to the {newRoom.Name}.\n\n{description}";
+        var message = $"You move {Name} to the {newRoom.Name}.\n\n{description}";
 
         // Check for deadly room damage
-        if (newRoom.IsDeadlyRoom && newRoom.DamageAmount > 0)
+        if (newRoom is { IsDeadlyRoom: true, DamageAmount: > 0 })
         {
             var canSurvive = await gameState.CanSurviveDeadlyRoomAsync(newRoom.Id);
 
@@ -116,11 +109,6 @@ public class MoveCommand : IGameCommand
         }
 
         // Check for winning room
-        if (newRoom.IsWinningRoom)
-        {
-            return CommandResult.Win(newRoom.WinMessage ?? "You won the game!");
-        }
-
-        return CommandResult.Ok(message);
+        return newRoom.IsWinningRoom ? CommandResult.Win(newRoom.WinMessage ?? "You won the game!") : CommandResult.Ok(message);
     }
 }

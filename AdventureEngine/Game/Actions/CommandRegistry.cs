@@ -25,13 +25,9 @@ public class CommandRegistry
         var lowerName = name.ToLower();
 
         // Try exact match first
-        if (_commands.TryGetValue(lowerName, out var command))
-        {
-            return command;
-        }
-
-        // Try fuzzy matching if exact match fails
-        return GetCommandFuzzy(lowerName);
+        return _commands.TryGetValue(lowerName, out var command) ? command :
+            // Try fuzzy matching if exact match fails
+            GetCommandFuzzy(lowerName);
     }
 
     /// <summary>

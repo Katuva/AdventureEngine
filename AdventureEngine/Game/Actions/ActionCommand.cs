@@ -24,11 +24,7 @@ public class ActionCommand : IGameCommand
                 return CommandResult.Error("There are no special actions available here.");
             }
 
-            var message = "Available actions:\n";
-            foreach (var action in actions)
-            {
-                message += $"  - {action.ActionName}: {action.Description}\n";
-            }
+            var message = actions.Aggregate("Available actions:\n", (current, action) => current + $"  - {action.ActionName}: {action.Description}\n");
             return CommandResult.Ok(message.TrimEnd());
         }
 
@@ -51,13 +47,10 @@ public class ActionCommand : IGameCommand
                 .Where(ra => ra.RoomId == currentRoom!.Id)
                 .ToListAsync();
 
-            foreach (var action in allActions)
+            foreach (var action in allActions.Where(action => FuzzyMatcher.IsSimilar(actionName, action.ActionName, maxDistance: 2)))
             {
-                if (FuzzyMatcher.IsSimilar(actionName, action.ActionName, maxDistance: 2))
-                {
-                    roomAction = action;
-                    break;
-                }
+                roomAction = action;
+                break;
             }
         }
 

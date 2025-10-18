@@ -8,37 +8,27 @@ namespace AdventureEngine.Services;
 /// Manages player conversation context for pronoun resolution and smart defaults
 /// Phase 3: Context-aware parsing
 /// </summary>
-public class ContextManager
+public class ContextManager(AdventureDbContext context, int saveId)
 {
-    private readonly AdventureDbContext _context;
-    private readonly int _saveId;
-
-    public ContextManager(AdventureDbContext context, int saveId)
-    {
-        _context = context;
-        _saveId = saveId;
-    }
-
     /// <summary>
     /// Get or create the player context for this save
     /// </summary>
     private async Task<PlayerContext> GetContextAsync()
     {
-        var context = await _context.Set<PlayerContext>()
-            .FirstOrDefaultAsync(pc => pc.GameSaveId == _saveId);
+        var context1 = await context.Set<PlayerContext>()
+            .FirstOrDefaultAsync(pc => pc.GameSaveId == saveId);
 
-        if (context == null)
+        if (context1 != null) return context1;
+        
+        context1 = new PlayerContext
         {
-            context = new PlayerContext
-            {
-                GameSaveId = _saveId,
-                UpdatedAt = DateTime.UtcNow
-            };
-            _context.Set<PlayerContext>().Add(context);
-            await _context.SaveChangesAsync();
-        }
+            GameSaveId = saveId,
+            UpdatedAt = DateTime.UtcNow
+        };
+        context.Set<PlayerContext>().Add(context1);
+        await context.SaveChangesAsync();
 
-        return context;
+        return context1;
     }
 
     /// <summary>
@@ -46,10 +36,10 @@ public class ContextManager
     /// </summary>
     public async Task SetLastMentionedItemAsync(int itemId)
     {
-        var context = await GetContextAsync();
-        context.LastMentionedItemId = itemId;
-        context.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        var context1 = await GetContextAsync();
+        context1.LastMentionedItemId = itemId;
+        context1.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -57,10 +47,10 @@ public class ContextManager
     /// </summary>
     public async Task SetLastExaminedObjectAsync(int examinableObjectId)
     {
-        var context = await GetContextAsync();
-        context.LastExaminedObjectId = examinableObjectId;
-        context.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        var context1 = await GetContextAsync();
+        context1.LastExaminedObjectId = examinableObjectId;
+        context1.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -68,10 +58,10 @@ public class ContextManager
     /// </summary>
     public async Task SetLastRoomAsync(int roomId)
     {
-        var context = await GetContextAsync();
-        context.LastRoomId = roomId;
-        context.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        var context1 = await GetContextAsync();
+        context1.LastRoomId = roomId;
+        context1.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
@@ -83,12 +73,7 @@ public class ContextManager
         var context = await GetContextAsync();
 
         // Context expires after 5 minutes
-        if (context.UpdatedAt < DateTime.UtcNow.AddMinutes(-5))
-        {
-            return null;
-        }
-
-        return context.LastMentionedItemId;
+        return context.UpdatedAt < DateTime.UtcNow.AddMinutes(-5) ? null : context.LastMentionedItemId;
     }
 
     /// <summary>
@@ -102,7 +87,7 @@ public class ContextManager
             return null;
         }
 
-        return await _context.Items.FindAsync(itemId.Value);
+        return await context.Items.FindAsync(itemId.Value);
     }
 
     /// <summary>
@@ -110,15 +95,10 @@ public class ContextManager
     /// </summary>
     public async Task<int?> GetLastRoomIdAsync()
     {
-        var context = await GetContextAsync();
+        var playerContext = await GetContextAsync();
 
         // Context expires after 10 minutes
-        if (context.UpdatedAt < DateTime.UtcNow.AddMinutes(-10))
-        {
-            return null;
-        }
-
-        return context.LastRoomId;
+        return playerContext.UpdatedAt < DateTime.UtcNow.AddMinutes(-10) ? null : playerContext.LastRoomId;
     }
 
     /// <summary>
@@ -126,11 +106,11 @@ public class ContextManager
     /// </summary>
     public async Task ClearContextAsync()
     {
-        var context = await GetContextAsync();
-        context.LastMentionedItemId = null;
-        context.LastExaminedObjectId = null;
-        context.LastRoomId = null;
-        context.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        var context1 = await GetContextAsync();
+        context1.LastMentionedItemId = null;
+        context1.LastExaminedObjectId = null;
+        context1.LastRoomId = null;
+        context1.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
     }
 }

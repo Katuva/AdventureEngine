@@ -15,7 +15,7 @@ public class CommandParser
     /// - "use key on door"
     /// - "put the golden lamp in the wooden box"
     /// </summary>
-    public ParsedInput Parse(string input)
+    public static ParsedInput Parse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
         {
@@ -57,16 +57,16 @@ public class CommandParser
             var directObjectText = string.Join(" ", remainingWords);
 
             // Check for multi-object keywords (all, everything)
-            if (remainingWords.Any(w => PrepositionHelper.IsMultiObjectKeyword(w)))
+            if (remainingWords.Any(PrepositionHelper.IsMultiObjectKeyword))
             {
                 parsed.IsMultiObjectCommand = true;
                 parsed.DirectObjects.Add("all"); // Special marker
             }
             // Check for pronouns (it, that, them)
-            else if (remainingWords.Any(w => PrepositionHelper.IsPronoun(w)))
+            else if (remainingWords.Any(PrepositionHelper.IsPronoun))
             {
                 parsed.UsesPronoun = true;
-                parsed.DirectObjects.Add(remainingWords.First(w => PrepositionHelper.IsPronoun(w)));
+                parsed.DirectObjects.Add(remainingWords.First(PrepositionHelper.IsPronoun));
             }
             else
             {
@@ -104,9 +104,9 @@ public class CommandParser
     /// Find the index of the first preposition in the word list
     /// Returns -1 if no preposition found
     /// </summary>
-    private int FindPrepositionIndex(string[] words)
+    private static int FindPrepositionIndex(string[] words)
     {
-        for (int i = 0; i < words.Length; i++)
+        for (var i = 0; i < words.Length; i++)
         {
             if (PrepositionHelper.IsPreposition(words[i]))
             {

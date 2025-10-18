@@ -12,9 +12,12 @@ namespace AdventureEngine.Commands;
 
 /// <summary>
 /// CLI command for running the Adventure Engine game
+/// Instantiated by Spectre.Console.Cli framework via reflection
 /// </summary>
+// ReSharper disable once ClassNeverInstantiated.Global
 public class PlayCommand : AsyncCommand<PlayCommand.Settings>
 {
+    // ReSharper disable once ClassNeverInstantiated.Global
     public class Settings : CommandSettings
     {
         [CommandOption("-d|--debug")]

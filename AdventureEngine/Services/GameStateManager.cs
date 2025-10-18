@@ -7,16 +7,11 @@ namespace AdventureEngine.Services;
 /// <summary>
 /// Manages the current game state including player position, inventory, and progress
 /// </summary>
-public class GameStateManager
+public class GameStateManager(AdventureDbContext context)
 {
-    public AdventureDbContext Context { get; }
+    public AdventureDbContext Context { get; } = context;
     public int CurrentSaveId { get; private set; }
     private Room? _currentRoom;
-
-    public GameStateManager(AdventureDbContext context)
-    {
-        Context = context;
-    }
 
     public async Task LoadGameAsync(int saveId)
     {
@@ -31,18 +26,20 @@ public class GameStateManager
         }
 
         _currentRoom = save.CurrentRoom;
+
+        // Mark starting room as visited if this is a new game
+        await MarkRoomVisitedAsync(save.CurrentRoom.Id);
     }
 
     public async Task<Room?> GetCurrentRoomAsync()
     {
-        if (_currentRoom == null)
-        {
-            var save = await Context.GameSaves
-                .Include(gs => gs.CurrentRoom)
-                .FirstOrDefaultAsync(gs => gs.Id == CurrentSaveId);
+        if (_currentRoom != null) return _currentRoom;
+        
+        var save = await Context.GameSaves
+            .Include(gs => gs.CurrentRoom)
+            .FirstOrDefaultAsync(gs => gs.Id == CurrentSaveId);
 
-            _currentRoom = save?.CurrentRoom;
-        }
+        _currentRoom = save?.CurrentRoom;
 
         return _currentRoom;
     }
@@ -50,12 +47,8 @@ public class GameStateManager
     public async Task MoveToRoomAsync(int roomId)
     {
         var room = await Context.Rooms.FindAsync(roomId);
-        if (room == null)
-        {
-            throw new InvalidOperationException($"Room {roomId} not found");
-        }
 
-        _currentRoom = room;
+        _currentRoom = room ?? throw new InvalidOperationException($"Room {roomId} not found");
 
         var save = await Context.GameSaves.FindAsync(CurrentSaveId);
         if (save != null)
@@ -64,6 +57,49 @@ public class GameStateManager
             save.TurnCount++;
             await Context.SaveChangesAsync();
         }
+
+        // Track room visit
+        await MarkRoomVisitedAsync(roomId);
+    }
+
+    /// <summary>
+    /// Mark a room as visited for this save
+    /// </summary>
+    public async Task MarkRoomVisitedAsync(int roomId)
+    {
+        var visited = await Context.VisitedRooms
+            .FirstOrDefaultAsync(vr => vr.GameSaveId == CurrentSaveId && vr.RoomId == roomId);
+
+        if (visited == null)
+        {
+            // First visit
+            visited = new VisitedRoom
+            {
+                GameSaveId = CurrentSaveId,
+                RoomId = roomId,
+                FirstVisitedAt = DateTime.UtcNow,
+                LastVisitedAt = DateTime.UtcNow,
+                VisitCount = 1
+            };
+            Context.VisitedRooms.Add(visited);
+        }
+        else
+        {
+            // Subsequent visit
+            visited.LastVisitedAt = DateTime.UtcNow;
+            visited.VisitCount++;
+        }
+
+        await Context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Check if a room has been visited by this save
+    /// </summary>
+    public async Task<bool> HasVisitedRoomAsync(int roomId)
+    {
+        return await Context.VisitedRooms
+            .AnyAsync(vr => vr.GameSaveId == CurrentSaveId && vr.RoomId == roomId);
     }
 
     public async Task<bool> HasItemAsync(int itemId)

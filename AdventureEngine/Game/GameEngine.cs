@@ -59,8 +59,7 @@ public class GameEngine
         _gameState = new GameStateManager(_context);
         await _gameState.LoadGameAsync(saveId);
 
-        AnsiConsole.Clear();
-        _ui.ShowTitle();
+        _ui.ShowIntro();
 
         // Show initial room
         var initialRoom = await _gameState.GetCurrentRoomAsync();
@@ -82,7 +81,7 @@ public class GameEngine
 
                 if (currentRoom != null)
                 {
-                    _ui.ShowCompass(currentRoom);
+                    await _ui.ShowCompassAsync(currentRoom, _gameState);
                     AnsiConsole.WriteLine();
                 }
 
@@ -98,7 +97,7 @@ public class GameEngine
                 }
 
                 // Parse the input using enhanced parser
-                var parsedInput = _commandParser.Parse(input);
+                var parsedInput = CommandParser.Parse(input);
 
                 var command = _commandRegistry.GetCommand(parsedInput.Verb);
 
@@ -117,6 +116,7 @@ public class GameEngine
                 var currentRoomAfterCommand = await _gameState.GetCurrentRoomAsync();
                 if (currentRoomAfterCommand != null && result.Success)
                 {
+                    _ui.ShowGameTitle();
                     _ui.ShowRoomHeader(currentRoomAfterCommand.Name);
                 }
 

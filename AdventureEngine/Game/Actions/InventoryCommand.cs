@@ -16,16 +16,12 @@ public class InventoryCommand : IGameCommand
             .Where(ii => ii.GameSaveId == gameState.CurrentSaveId)
             .ToListAsync();
 
-        if (!inventory.Any())
+        if (inventory.Count == 0)
         {
             return CommandResult.Ok("Your inventory is empty.");
         }
 
-        var message = "You are carrying:\n";
-        foreach (var invItem in inventory)
-        {
-            message += $"  - {invItem.Item.Name}: {invItem.Item.Description}\n";
-        }
+        var message = inventory.Aggregate("You are carrying:\n", (current, invItem) => current + $"  - {invItem.Item.Name}: {invItem.Item.Description}\n");
 
         return CommandResult.Ok(message.TrimEnd());
     }

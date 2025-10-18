@@ -15,7 +15,7 @@ public class AmbiguityResolver
     {
         public bool IsAmbiguous { get; set; }
         public Item? ResolvedItem { get; set; }
-        public List<Item> Candidates { get; set; } = new();
+        public List<Item> Candidates { get; set; } = [];
         public string? ErrorMessage { get; set; }
     }
 
@@ -25,40 +25,24 @@ public class AmbiguityResolver
     /// </summary>
     public AmbiguityResult ResolveItems(List<Item> candidates, string originalInput)
     {
-        if (candidates.Count == 0)
+        return candidates.Count switch
         {
-            return new AmbiguityResult
+            0 => new AmbiguityResult { IsAmbiguous = false, ErrorMessage = $"There is no '{originalInput}' here." },
+            1 => new AmbiguityResult { IsAmbiguous = false, ResolvedItem = candidates[0] },
+            _ => new AmbiguityResult
             {
-                IsAmbiguous = false,
-                ErrorMessage = $"There is no '{originalInput}' here."
-            };
-        }
-
-        if (candidates.Count == 1)
-        {
-            return new AmbiguityResult
-            {
-                IsAmbiguous = false,
-                ResolvedItem = candidates[0]
-            };
-        }
-
-        // Multiple matches - ambiguous
-        return new AmbiguityResult
-        {
-            IsAmbiguous = true,
-            Candidates = candidates,
-            ErrorMessage = BuildAmbiguityMessage(candidates)
+                IsAmbiguous = true, Candidates = candidates, ErrorMessage = BuildAmbiguityMessage(candidates)
+            }
         };
     }
 
     /// <summary>
     /// Build a user-friendly ambiguity message
     /// </summary>
-    private string BuildAmbiguityMessage(List<Item> candidates)
+    private static string BuildAmbiguityMessage(List<Item> candidates)
     {
         var message = "Which do you mean:";
-        for (int i = 0; i < candidates.Count; i++)
+        for (var i = 0; i < candidates.Count; i++)
         {
             message += $"\n  {i + 1}. {candidates[i].Name}";
         }
@@ -69,7 +53,7 @@ public class AmbiguityResolver
     /// <summary>
     /// Try to auto-disambiguate using item priority or uniqueness
     /// </summary>
-    public Item? AutoDisambiguate(List<Item> candidates)
+    public static Item? AutoDisambiguate(List<Item> candidates)
     {
         if (candidates.Count == 0)
         {

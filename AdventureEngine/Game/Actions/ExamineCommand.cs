@@ -28,26 +28,23 @@ public class ExamineCommand : IGameCommand
         var resolver = new SemanticResolver(gameState.Context);
         var examinableObject = await resolver.ResolveExaminableObjectAsync(objectName, room.Id);
 
-        if (examinableObject != null)
+        // Check if hidden and not revealed yet
+        if (examinableObject is { IsHidden: true })
         {
-            // Check if hidden and not revealed yet
-            if (examinableObject.IsHidden)
+            if (examinableObject.RevealedByActionId.HasValue)
             {
-                if (examinableObject.RevealedByActionId.HasValue)
-                {
-                    var isRevealed = await gameState.Context.CompletedActions
-                        .AnyAsync(ca => ca.GameSaveId == gameState.CurrentSaveId &&
-                                       ca.RoomActionId == examinableObject.RevealedByActionId.Value);
+                var isRevealed = await gameState.Context.CompletedActions
+                    .AnyAsync(ca => ca.GameSaveId == gameState.CurrentSaveId &&
+                                    ca.RoomActionId == examinableObject.RevealedByActionId.Value);
 
-                    if (!isRevealed)
-                    {
-                        examinableObject = null; // Not revealed yet
-                    }
-                }
-                else
+                if (!isRevealed)
                 {
-                    examinableObject = null; // Hidden with no reveal condition
+                    examinableObject = null; // Not revealed yet
                 }
+            }
+            else
+            {
+                examinableObject = null; // Hidden with no reveal condition
             }
         }
 
@@ -63,11 +60,6 @@ public class ExamineCommand : IGameCommand
             includeInventory: true,
             includeRoom: true);
 
-        if (item != null)
-        {
-            return CommandResult.Ok(item.Description);
-        }
-
-        return CommandResult.Error($"You don't see anything special about '{objectName}'.");
+        return item != null ? CommandResult.Ok(item.Description) : CommandResult.Error($"You don't see anything special about '{objectName}'.");
     }
 }

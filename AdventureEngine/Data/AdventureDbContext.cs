@@ -6,7 +6,7 @@ namespace AdventureEngine.Data;
 /// <summary>
 /// Entity Framework database context for the adventure game
 /// </summary>
-public class AdventureDbContext : DbContext
+public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : DbContext(options)
 {
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<Item> Items => Set<Item>();
@@ -22,10 +22,7 @@ public class AdventureDbContext : DbContext
     public DbSet<PlayerContext> PlayerContexts => Set<PlayerContext>();
     public DbSet<ItemState> ItemStates => Set<ItemState>();
     public DbSet<RoomDescription> RoomDescriptions => Set<RoomDescription>();
-
-    public AdventureDbContext(DbContextOptions<AdventureDbContext> options) : base(options)
-    {
-    }
+    public DbSet<VisitedRoom> VisitedRooms => Set<VisitedRoom>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -268,5 +265,22 @@ public class AdventureDbContext : DbContext
             .WithMany()
             .HasForeignKey(rd => rd.RequiredActionId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Configure VisitedRoom
+        modelBuilder.Entity<VisitedRoom>()
+            .HasOne(vr => vr.GameSave)
+            .WithMany()
+            .HasForeignKey(vr => vr.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<VisitedRoom>()
+            .HasOne(vr => vr.Room)
+            .WithMany()
+            .HasForeignKey(vr => vr.RoomId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<VisitedRoom>()
+            .HasIndex(vr => new { vr.GameSaveId, vr.RoomId })
+            .IsUnique();
     }
 }

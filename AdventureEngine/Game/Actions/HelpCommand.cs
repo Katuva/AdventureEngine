@@ -2,15 +2,8 @@ using AdventureEngine.Services;
 
 namespace AdventureEngine.Game.Actions;
 
-public class HelpCommand : IGameCommand
+public class HelpCommand(CommandRegistry registry) : IGameCommand
 {
-    private readonly CommandRegistry _registry;
-
-    public HelpCommand(CommandRegistry registry)
-    {
-        _registry = registry;
-    }
-
     public string Name => "help";
     public string Description => "Show available commands";
     public string[] Aliases => ["?", "commands"];
@@ -19,7 +12,7 @@ public class HelpCommand : IGameCommand
     {
         var message = "Available commands:\n\n";
 
-        foreach (var command in _registry.GetAllCommands())
+        foreach (var command in registry.GetAllCommands())
         {
             message += $"{command.Name,-15} - {command.Description}";
             if (command.Aliases.Length > 0)

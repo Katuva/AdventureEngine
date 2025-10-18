@@ -7,33 +7,33 @@ namespace AdventureEngine.UI;
 /// <summary>
 /// Handles all console UI rendering using Spectre.Console
 /// </summary>
-public class ConsoleUI
+public class ConsoleUI(GameConfiguration config)
 {
-    private readonly GameConfiguration _config;
-
-    public ConsoleUI(GameConfiguration config)
+    public void ShowGameTitle()
     {
-        _config = config;
-    }
-
-    public void ShowTitle()
-    {
-        AnsiConsole.Clear();
-
-        var rule = new Rule($"[{_config.UI.TitleColor}]{_config.GameName}[/]")
+        var rule = new Rule($"[{config.UI.TitleColor}]{config.GameName}[/]")
         {
             Justification = Justify.Center
         };
+        
         AnsiConsole.Write(rule);
+        AnsiConsole.WriteLine();
+    }
 
-        AnsiConsole.MarkupLine($"[{_config.UI.DescriptionColor} italic]{_config.GameDescription}[/]");
-        AnsiConsole.MarkupLine($"[dim]By {_config.Author} | Version {_config.Version}[/]");
+    public void ShowIntro()
+    {
+        AnsiConsole.Clear();
+
+        ShowGameTitle();
+        
+        AnsiConsole.MarkupLine($"[{config.UI.DescriptionColor} italic]{config.GameDescription}[/]");
+        AnsiConsole.MarkupLine($"[dim]By {config.Author} | Version {config.Version}[/]");
         AnsiConsole.WriteLine();
     }
 
     public void ShowRoomHeader(string roomName)
     {
-        var panel = new Panel($"[bold {_config.UI.TitleColor}]{roomName}[/]")
+        var panel = new Panel($"[bold {config.UI.TitleColor}]{roomName}[/]")
         {
             Border = BoxBorder.Double,
             BorderStyle = new Style(Color.Cyan1)
@@ -45,10 +45,10 @@ public class ConsoleUI
     {
         var color = type switch
         {
-            MessageType.Success => _config.UI.SuccessColor,
-            MessageType.Error => _config.UI.ErrorColor,
-            MessageType.Warning => _config.UI.WarningColor,
-            MessageType.Normal => _config.UI.DescriptionColor,
+            MessageType.Success => config.UI.SuccessColor,
+            MessageType.Error => config.UI.ErrorColor,
+            MessageType.Warning => config.UI.WarningColor,
+            MessageType.Normal => config.UI.DescriptionColor,
             _ => "white"
         };
 
@@ -90,7 +90,7 @@ public class ConsoleUI
     public string GetInput(string prompt = ">")
     {
         return AnsiConsole.Prompt(
-            new TextPrompt<string>($"[{_config.UI.PromptColor}]{prompt}[/]")
+            new TextPrompt<string>($"[{config.UI.PromptColor}]{prompt}[/]")
                 .AllowEmpty()
         );
     }
@@ -103,7 +103,7 @@ public class ConsoleUI
         {
             var panel = new Panel(
                 Align.Center(
-                    new Markup($"[bold {_config.UI.SuccessColor}]VICTORY![/]\n\n{Markup.Escape(message)}")
+                    new Markup($"[bold {config.UI.SuccessColor}]VICTORY![/]\n\n{Markup.Escape(message)}")
                 )
             )
             {
@@ -116,7 +116,7 @@ public class ConsoleUI
         {
             var panel = new Panel(
                 Align.Center(
-                    new Markup($"[bold {_config.UI.ErrorColor}]GAME OVER[/]\n\n{Markup.Escape(message)}")
+                    new Markup($"[bold {config.UI.ErrorColor}]GAME OVER[/]\n\n{Markup.Escape(message)}")
                 )
             )
             {
@@ -135,7 +135,7 @@ public class ConsoleUI
     {
         var table = new Table()
             .Border(TableBorder.Rounded)
-            .Title($"[{_config.UI.TitleColor}]{title}[/]");
+            .Title($"[{config.UI.TitleColor}]{title}[/]");
 
         foreach (var (header, _) in columns)
         {
@@ -156,46 +156,53 @@ public class ConsoleUI
         AnsiConsole.Write(new Rule() { Style = new Style(Color.Grey) });
     }
 
-    public void ShowCompass(AdventureEngine.Models.Room room)
+    public async Task ShowCompassAsync(AdventureEngine.Models.Room room, GameStateManager gameState)
     {
         // Get console width for centering
         var consoleWidth = Console.WindowWidth;
 
-        // Build compass components
-        var upChar = room.UpRoomId.HasValue ? "U" : " ";
-        var downChar = room.DownRoomId.HasValue ? "D" : " ";
-        var northChar = room.NorthRoomId.HasValue ? "N" : " ";
-        var southChar = room.SouthRoomId.HasValue ? "S" : " ";
-        var eastChar = room.EastRoomId.HasValue ? "E" : " ";
-        var westChar = room.WestRoomId.HasValue ? "W" : " ";
+        // Check which rooms have been visited
+        var upVisited = room.UpRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.UpRoomId.Value);
+        var downVisited = room.DownRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.DownRoomId.Value);
+        var northVisited = room.NorthRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.NorthRoomId.Value);
+        var southVisited = room.SouthRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.SouthRoomId.Value);
+        var eastVisited = room.EastRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.EastRoomId.Value);
+        var westVisited = room.WestRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.WestRoomId.Value);
+
+        // Build compass components with color coding
+        // Unvisited (new areas): bright cyan/white
+        // Visited: dim grey
+        var upChar = room.UpRoomId.HasValue ? (upVisited ? "[grey]U[/]" : "[bold cyan]U[/]") : " ";
+        var downChar = room.DownRoomId.HasValue ? (downVisited ? "[grey]D[/]" : "[bold cyan]D[/]") : " ";
+        var northChar = room.NorthRoomId.HasValue ? (northVisited ? "[grey]N[/]" : "[bold cyan]N[/]") : " ";
+        var southChar = room.SouthRoomId.HasValue ? (southVisited ? "[grey]S[/]" : "[bold cyan]S[/]") : " ";
+        var eastChar = room.EastRoomId.HasValue ? (eastVisited ? "[grey]E[/]" : "[bold cyan]E[/]") : " ";
+        var westChar = room.WestRoomId.HasValue ? (westVisited ? "[grey]W[/]" : "[bold cyan]W[/]") : " ";
 
         var center = room.UpRoomId.HasValue || room.DownRoomId.HasValue ? "┼" : "+";
-        var udBar = room.UpRoomId.HasValue || room.DownRoomId.HasValue ? "│" : "-";
 
         // Build the compass parts
         // Layout:  N (aligned with +)     U (to the right)
         //          W + E (with full-width rule)
         //          S (aligned with +)     D (to the right)
 
-        var middlePart = $" {westChar} {center} {eastChar} ";  // " W + E "
-        var middleWidth = middlePart.Length;
+        var middlePart = $" {westChar} [dim]{center}[/] {eastChar} ";  // " W + E "
+        var middleWidth = 7; // Account for visible characters only
         var middlePadding = Math.Max(0, (consoleWidth - middleWidth) / 2);
 
-        // N and S should align with the center (+), which is at position middlePadding + 3
-        // (3 = space + W + space before the +)
         var centerPosition = middlePadding + 3;
 
         // Top part: N aligned with +, then spaces, then U
         var topPart = $"{northChar}     {upChar}";
-        var topLeftPadding = centerPosition; // N aligns with the +
+        var topLeftPadding = centerPosition;
 
         // Bottom part: S aligned with +, then spaces, then D
         var bottomPart = $"{southChar}     {downChar}";
-        var bottomLeftPadding = centerPosition; // S aligns with the +
+        var bottomLeftPadding = centerPosition;
 
         // Display top line (N aligned with +, U to the right)
         var topSpacing = new string(' ', topLeftPadding);
-        AnsiConsole.MarkupLine($"[dim]{topSpacing}{Markup.Escape(topPart)}[/]");
+        AnsiConsole.MarkupLine($"{topSpacing}{topPart}");
 
         // Display middle line with full-width rule
         var leftRuleWidth = middlePadding;
@@ -203,13 +210,11 @@ public class ConsoleUI
         var leftRule = new string('─', Math.Max(0, leftRuleWidth));
         var rightRule = new string('─', Math.Max(0, rightRuleWidth));
 
-        AnsiConsole.MarkupLine($"[dim]{leftRule}{Markup.Escape(middlePart)}{rightRule}[/]");
+        AnsiConsole.MarkupLine($"[dim]{leftRule}[/]{middlePart}[dim]{rightRule}[/]");
 
         // Display bottom line (S aligned with +, D to the right)
         var bottomSpacing = new string(' ', bottomLeftPadding);
-        DebugLogger.Log($"About to display bottom line: '{bottomPart}'");
-        AnsiConsole.MarkupLine($"[dim]{bottomSpacing}{Markup.Escape(bottomPart)}[/]");
-        DebugLogger.Log("Bottom line displayed");
+        AnsiConsole.MarkupLine($"{bottomSpacing}{bottomPart}");
     }
 }
 

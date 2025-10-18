@@ -34,7 +34,7 @@ public class TakeCommand : IGameCommand
         return CommandResult.Ok(singleResult);
     }
 
-    private async Task<string> TakeSingleItem(GameStateManager gameState, string itemName)
+    private static async Task<string> TakeSingleItem(GameStateManager gameState, string itemName)
     {
         var room = await gameState.GetCurrentRoomAsync();
 

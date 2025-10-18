@@ -170,7 +170,7 @@ public class SemanticResolver
         if (matches.Count > 1)
         {
             var resolver = new AmbiguityResolver();
-            return resolver.AutoDisambiguate(matches);
+            return AmbiguityResolver.AutoDisambiguate(matches);
         }
 
         return null;

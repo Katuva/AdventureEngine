@@ -25,13 +25,10 @@ public class LookCommand : IGameCommand
         // Get all items in the room using the helper method
         var allItems = await gameState.GetRoomItemsAsync(room.Id);
 
-        if (allItems.Any())
+        if (allItems.Count != 0)
         {
             description += "\n\nYou can see:";
-            foreach (var item in allItems)
-            {
-                description += $"\n  - {item.Name}: {item.Description}";
-            }
+            description = allItems.Aggregate(description, (current, item) => current + $"\n  - {item.Name}: {item.Description}");
         }
 
         // Exits are now shown via the compass display

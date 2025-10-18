@@ -7,22 +7,13 @@ namespace AdventureEngine.UI;
 /// <summary>
 /// Main menu interface
 /// </summary>
-public class MainMenu
+public class MainMenu(ConsoleUI ui, SaveGameService saveService)
 {
-    private readonly ConsoleUI _ui;
-    private readonly SaveGameService _saveService;
-
-    public MainMenu(ConsoleUI ui, SaveGameService saveService)
-    {
-        _ui = ui;
-        _saveService = saveService;
-    }
-
     public async Task<MainMenuAction> ShowAsync()
     {
-        _ui.ShowTitle();
+        ui.ShowIntro();
 
-        var hasSaves = await _saveService.HasSavesAsync();
+        var hasSaves = await saveService.HasSavesAsync();
 
         var choices = new List<string>
         {
@@ -59,12 +50,12 @@ public class MainMenu
 
         try
         {
-            var newSave = await _saveService.CreateNewGameAsync(slotName);
+            var newSave = await saveService.CreateNewGameAsync(slotName);
             return MainMenuAction.StartGame(newSave.Id);
         }
         catch (InvalidOperationException ex)
         {
-            _ui.ShowError(ex.Message);
+            ui.ShowError(ex.Message);
             AnsiConsole.MarkupLine("[dim]Press any key to continue...[/]");
             Console.ReadKey(true);
             return MainMenuAction.ShowMenu();
@@ -73,17 +64,17 @@ public class MainMenu
 
     private async Task<MainMenuAction> HandleLoadGameAsync()
     {
-        var saves = await _saveService.GetAllSavesAsync();
+        var saves = await saveService.GetAllSavesAsync();
 
-        if (!saves.Any())
+        if (saves.Count == 0)
         {
-            _ui.ShowError("No saved games found.");
+            ui.ShowError("No saved games found.");
             AnsiConsole.MarkupLine("[dim]Press any key to continue...[/]");
             Console.ReadKey(true);
             return MainMenuAction.ShowMenu();
         }
 
-        var saveChoices = saves.Select(s => FormatSaveChoice(s)).ToList();
+        var saveChoices = saves.Select(FormatSaveChoice).ToList();
         saveChoices.Add("[red]Cancel[/]");
 
         var choice = AnsiConsole.Prompt(
@@ -105,17 +96,17 @@ public class MainMenu
 
     private async Task<MainMenuAction> HandleDeleteSaveAsync()
     {
-        var saves = await _saveService.GetAllSavesAsync();
+        var saves = await saveService.GetAllSavesAsync();
 
-        if (!saves.Any())
+        if (saves.Count == 0)
         {
-            _ui.ShowError("No saved games found.");
+            ui.ShowError("No saved games found.");
             AnsiConsole.MarkupLine("[dim]Press any key to continue...[/]");
             Console.ReadKey(true);
             return MainMenuAction.ShowMenu();
         }
 
-        var saveChoices = saves.Select(s => FormatSaveChoice(s)).ToList();
+        var saveChoices = saves.Select(FormatSaveChoice).ToList();
         saveChoices.Add("[red]Cancel[/]");
 
         var choice = AnsiConsole.Prompt(
@@ -133,8 +124,8 @@ public class MainMenu
         if (confirm)
         {
             var selectedSave = saves[saveChoices.IndexOf(choice)];
-            await _saveService.DeleteSaveAsync(selectedSave.Id);
-            _ui.ShowSuccess("Save deleted successfully.");
+            await saveService.DeleteSaveAsync(selectedSave.Id);
+            ui.ShowSuccess("Save deleted successfully.");
         }
 
         AnsiConsole.MarkupLine("[dim]Press any key to continue...[/]");
@@ -159,8 +150,8 @@ public class MainMenu
 /// </summary>
 public class MainMenuAction
 {
-    public MenuActionType Type { get; set; }
-    public int SaveGameId { get; set; }
+    public MenuActionType Type { get; private init; }
+    public int SaveGameId { get; private init; }
 
     public static MainMenuAction StartGame(int saveId) => new() { Type = MenuActionType.StartGame, SaveGameId = saveId };
     public static MainMenuAction ShowMenu() => new() { Type = MenuActionType.ShowMenu };
