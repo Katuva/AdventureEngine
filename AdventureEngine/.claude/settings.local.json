@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//e/Dev/AdventureEngine/**)",
+      "Bash(dotnet ef migrations add AddExaminableObjects)",
+      "Bash(dotnet ef database update)",
+      "Bash(dotnet ef migrations add AddExaminableObjectInteractions)",
+      "Bash(dotnet build)",
+      "Bash(dotnet ef database drop --force)",
+      "Bash(dotnet ef migrations add AddCompletedExaminableInteractions)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

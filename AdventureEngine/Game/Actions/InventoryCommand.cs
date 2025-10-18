@@ -1,0 +1,32 @@
+using AdventureEngine.Services;
+using Microsoft.EntityFrameworkCore;
+
+namespace AdventureEngine.Game.Actions;
+
+public class InventoryCommand : IGameCommand
+{
+    public string Name => "inventory";
+    public string Description => "Show your inventory";
+    public string[] Aliases => ["i", "inv"];
+
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    {
+        var inventory = await gameState.Context.InventoryItems
+            .Include(ii => ii.Item)
+            .Where(ii => ii.GameSaveId == gameState.CurrentSaveId)
+            .ToListAsync();
+
+        if (!inventory.Any())
+        {
+            return CommandResult.Ok("Your inventory is empty.");
+        }
+
+        var message = "You are carrying:\n";
+        foreach (var invItem in inventory)
+        {
+            message += $"  - {invItem.Item.Name}: {invItem.Item.Description}\n";
+        }
+
+        return CommandResult.Ok(message.TrimEnd());
+    }
+}

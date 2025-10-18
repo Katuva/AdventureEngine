@@ -1,0 +1,39 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Visual Studio cache/options
+.vs/
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# User-generated config (will be auto-created)
+game-config.yaml
+
+# Migration files (optional - uncomment if you don't want to track them)
+# **/Migrations/
+
+.idea/
