@@ -50,6 +50,10 @@ public class PlayCommand : AsyncCommand<PlayCommand.Settings>
             var seeder = new DatabaseSeeder(dbContext);
             await seeder.SeedAsync();
 
+            // Seed vocabulary data
+            var vocabSeeder = new VocabularySeeder(dbContext);
+            await vocabSeeder.SeedAsync();
+
             // Initialize services
             var ui = new ConsoleUI(config);
             var saveService = new SaveGameService(dbContext, config);

@@ -7,7 +7,9 @@
       "Bash(dotnet ef migrations add AddExaminableObjectInteractions)",
       "Bash(dotnet build)",
       "Bash(dotnet ef database drop --force)",
-      "Bash(dotnet ef migrations add AddCompletedExaminableInteractions)"
+      "Bash(dotnet ef migrations add AddCompletedExaminableInteractions)",
+      "Bash(dotnet ef migrations add AddVocabularySystem)",
+      "Bash(dotnet ef migrations add AddPhase3Features)"
     ],
     "deny": [],
     "ask": []

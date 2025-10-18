@@ -15,7 +15,7 @@ public class HelpCommand : IGameCommand
     public string Description => "Show available commands";
     public string[] Aliases => ["?", "commands"];
 
-    public Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
         var message = "Available commands:\n\n";
 

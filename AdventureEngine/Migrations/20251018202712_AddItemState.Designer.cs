@@ -3,6 +3,7 @@ using System;
 using AdventureEngine.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AdventureEngine.Migrations
 {
     [DbContext(typeof(AdventureDbContext))]
-    partial class AdventureDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251018202712_AddItemState")]
+    partial class AddItemState
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -378,9 +381,6 @@ namespace AdventureEngine.Migrations
                     b.Property<int?>("ProtectionItemId1")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("RequiredItemState")
-                        .HasColumnType("TEXT");
-
                     b.Property<int?>("SouthRoomId")
                         .HasColumnType("INTEGER");
 
@@ -453,52 +453,6 @@ namespace AdventureEngine.Migrations
                     b.HasIndex("UnlocksRoomId");
 
                     b.ToTable("RoomActions");
-                });
-
-            modelBuilder.Entity("AdventureEngine.Models.RoomDescription", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ActionMustBeCompleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ConditionType")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("ItemMustBeOwned")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("RequiredActionId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("RequiredItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("RequiredItemState")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("RoomId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RequiredActionId");
-
-                    b.HasIndex("RequiredItemId");
-
-                    b.HasIndex("RoomId");
-
-                    b.ToTable("RoomDescriptions");
                 });
 
             modelBuilder.Entity("AdventureEngine.Models.Vocabulary", b =>
@@ -805,31 +759,6 @@ namespace AdventureEngine.Migrations
                     b.Navigation("Room");
 
                     b.Navigation("UnlocksRoom");
-                });
-
-            modelBuilder.Entity("AdventureEngine.Models.RoomDescription", b =>
-                {
-                    b.HasOne("AdventureEngine.Models.RoomAction", "RequiredAction")
-                        .WithMany()
-                        .HasForeignKey("RequiredActionId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("AdventureEngine.Models.Item", "RequiredItem")
-                        .WithMany()
-                        .HasForeignKey("RequiredItemId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("AdventureEngine.Models.Room", "Room")
-                        .WithMany()
-                        .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("RequiredAction");
-
-                    b.Navigation("RequiredItem");
-
-                    b.Navigation("Room");
                 });
 
             modelBuilder.Entity("AdventureEngine.Models.GameSave", b =>

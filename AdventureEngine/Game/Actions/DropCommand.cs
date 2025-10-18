@@ -10,14 +10,18 @@ public class DropCommand : IGameCommand
     public string Description => "Drop an item from your inventory";
     public string[] Aliases => ["place", "put"];
 
-    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
-        if (args.Length == 0)
+        if (input.DirectObjects.Count == 0)
         {
             return CommandResult.Error("Drop what? Specify an item name.");
         }
 
-        var itemName = string.Join(" ", args).ToLower();
+        var itemName = input.DirectObjects[0].ToLower();
+
+        // Note: Preposition (in/on) is parsed but not used yet in Phase 1
+        // Phase 2 will add container support to actually put items IN/ON things
+        // For now "drop lamp" and "put lamp on table" both just drop it in the room
         var room = await gameState.GetCurrentRoomAsync();
 
         if (room == null)
@@ -25,11 +29,23 @@ public class DropCommand : IGameCommand
             return CommandResult.Error("You seem to be nowhere. This is a bug!");
         }
 
-        // Find the item in the player's inventory
+        // Use SemanticResolver to find the item in inventory
+        var resolver = new SemanticResolver(gameState.Context);
+        var item = await resolver.ResolveItemAsync(
+            itemName,
+            gameState,
+            includeInventory: true,
+            includeRoom: false);  // Only check inventory when dropping
+
+        if (item == null)
+        {
+            return CommandResult.Error($"You don't have '{itemName}' in your inventory.");
+        }
+
+        // Find the inventory item record
         var inventoryItem = await gameState.Context.InventoryItems
-            .Include(ii => ii.Item)
             .FirstOrDefaultAsync(ii => ii.GameSaveId == gameState.CurrentSaveId &&
-                                      ii.Item.Name.ToLower().Contains(itemName));
+                                      ii.ItemId == item.Id);
 
         if (inventoryItem == null)
         {
@@ -51,6 +67,6 @@ public class DropCommand : IGameCommand
         gameState.Context.PlacedItems.Add(placedItem);
         await gameState.Context.SaveChangesAsync();
 
-        return CommandResult.Ok($"You drop the {inventoryItem.Item.Name}.");
+        return CommandResult.Ok($"You drop the {item.Name}.");
     }
 }

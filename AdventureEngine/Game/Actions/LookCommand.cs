@@ -1,5 +1,4 @@
 using AdventureEngine.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace AdventureEngine.Game.Actions;
 
@@ -9,7 +8,7 @@ public class LookCommand : IGameCommand
     public string Description => "Look around the current room";
     public string[] Aliases => ["l", "examine"];
 
-    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
         var room = await gameState.GetCurrentRoomAsync();
         if (room == null)
@@ -17,28 +16,14 @@ public class LookCommand : IGameCommand
             return CommandResult.Error("You seem to be nowhere. This is a bug!");
         }
 
-        // Get items in this save's inventory
-        var itemsInInventory = await gameState.Context.InventoryItems
-            .Where(ii => ii.GameSaveId == gameState.CurrentSaveId)
-            .Select(ii => ii.ItemId)
-            .ToListAsync();
+        // Use dynamic description resolver
+        var descriptionResolver = new RoomDescriptionResolver(gameState.Context);
+        var roomDescription = await descriptionResolver.GetRoomDescriptionAsync(room.Id, gameState);
 
-        // Get original room items that aren't in inventory
-        var originalItems = await gameState.Context.Items
-            .Where(i => i.RoomId == room.Id && !itemsInInventory.Contains(i.Id))
-            .ToListAsync();
+        var description = roomDescription;
 
-        // Get items placed in this room by this save
-        var placedItems = await gameState.Context.PlacedItems
-            .Include(pi => pi.Item)
-            .Where(pi => pi.GameSaveId == gameState.CurrentSaveId && pi.RoomId == room.Id)
-            .Select(pi => pi.Item)
-            .ToListAsync();
-
-        var description = $"{room.Description}";
-
-        // Combine original and placed items
-        var allItems = originalItems.Concat(placedItems).ToList();
+        // Get all items in the room using the helper method
+        var allItems = await gameState.GetRoomItemsAsync(room.Id);
 
         if (allItems.Any())
         {

@@ -25,7 +25,7 @@ public class MoveCommand : IGameCommand
         _ => []
     };
 
-    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
         var currentRoom = await gameState.GetCurrentRoomAsync();
         if (currentRoom == null)
@@ -75,7 +75,11 @@ public class MoveCommand : IGameCommand
             return CommandResult.Error("Something went wrong!");
         }
 
-        var message = $"You move {_direction} to the {newRoom.Name}.\n\n{newRoom.Description}";
+        // Use dynamic description resolver
+        var descriptionResolver = new RoomDescriptionResolver(gameState.Context);
+        var description = await descriptionResolver.GetRoomDescriptionAsync(newRoom.Id, gameState);
+
+        var message = $"You move {_direction} to the {newRoom.Name}.\n\n{description}";
 
         // Check for deadly room damage
         if (newRoom.IsDeadlyRoom && newRoom.DamageAmount > 0)

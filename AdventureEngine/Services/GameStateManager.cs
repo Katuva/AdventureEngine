@@ -124,20 +124,35 @@ public class GameStateManager
 
     public async Task<bool> CanSurviveDeadlyRoomAsync(int roomId)
     {
-        // Check if there's a room action that allows surviving this room
-        var roomActions = await Context.RoomActions
-            .Where(ra => ra.RoomId == roomId && ra.RequiredItemId != null)
-            .ToListAsync();
-
-        foreach (var action in roomActions)
+        var room = await Context.Rooms.FindAsync(roomId);
+        if (room == null)
         {
-            if (action.RequiredItemId.HasValue && await HasItemAsync(action.RequiredItemId.Value))
-            {
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        // Check if room has a specific protection item
+        if (!room.ProtectionItemId.HasValue)
+        {
+            // No protection item defined - room is always deadly
+            return false;
+        }
+
+        // Check if player has the protection item
+        var hasItem = await HasItemAsync(room.ProtectionItemId.Value);
+        if (!hasItem)
+        {
+            return false;
+        }
+
+        // If a specific state is required, check it
+        if (!string.IsNullOrEmpty(room.RequiredItemState))
+        {
+            var isInRequiredState = await IsItemInStateAsync(room.ProtectionItemId.Value, room.RequiredItemState);
+            return isInRequiredState;
+        }
+
+        // No specific state required - just having the item is enough
+        return true;
     }
 
     public async Task MarkGameCompletedAsync(bool won)
@@ -179,5 +194,79 @@ public class GameStateManager
     {
         var health = await GetHealthAsync();
         return health <= 0;
+    }
+
+    /// <summary>
+    /// Get the current state of an item for this save
+    /// </summary>
+    public async Task<string> GetItemStateAsync(int itemId)
+    {
+        var itemState = await Context.ItemStates
+            .FirstOrDefaultAsync(ist => ist.GameSaveId == CurrentSaveId && ist.ItemId == itemId);
+
+        return itemState?.State ?? ItemStates.Default;
+    }
+
+    /// <summary>
+    /// Set the state of an item for this save
+    /// </summary>
+    public async Task SetItemStateAsync(int itemId, string state)
+    {
+        var itemState = await Context.ItemStates
+            .FirstOrDefaultAsync(ist => ist.GameSaveId == CurrentSaveId && ist.ItemId == itemId);
+
+        if (itemState == null)
+        {
+            itemState = new ItemState
+            {
+                GameSaveId = CurrentSaveId,
+                ItemId = itemId,
+                State = state,
+                UpdatedAt = DateTime.UtcNow
+            };
+            Context.ItemStates.Add(itemState);
+        }
+        else
+        {
+            itemState.State = state;
+            itemState.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await Context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Check if an item is in a specific state
+    /// </summary>
+    public async Task<bool> IsItemInStateAsync(int itemId, string state)
+    {
+        var currentState = await GetItemStateAsync(itemId);
+        return currentState.Equals(state, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Get all items visible in the current room (excludes inventory items)
+    /// </summary>
+    public async Task<List<Item>> GetRoomItemsAsync(int roomId)
+    {
+        // Get items in this save's inventory
+        var itemsInInventory = await Context.InventoryItems
+            .Where(ii => ii.GameSaveId == CurrentSaveId)
+            .Select(ii => ii.ItemId)
+            .ToListAsync();
+
+        // Get original room items that aren't in inventory
+        var originalItems = await Context.Items
+            .Where(i => i.RoomId == roomId && !itemsInInventory.Contains(i.Id))
+            .ToListAsync();
+
+        // Get items placed in this room by this save
+        var placedItems = await Context.PlacedItems
+            .Include(pi => pi.Item)
+            .Where(pi => pi.GameSaveId == CurrentSaveId && pi.RoomId == roomId)
+            .Select(pi => pi.Item)
+            .ToListAsync();
+
+        return originalItems.Concat(placedItems).Distinct().ToList();
     }
 }

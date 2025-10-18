@@ -8,7 +8,7 @@ public class QuitCommand : IGameCommand
     public string Description => "Exit the game";
     public string[] Aliases => ["exit", "q"];
 
-    public Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
         return Task.FromResult(CommandResult.Quit());
     }

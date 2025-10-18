@@ -9,14 +9,14 @@ public class ExamineCommand : IGameCommand
     public string Description => "Examine an object closely";
     public string[] Aliases => ["inspect", "look at", "check"];
 
-    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
-        if (args.Length == 0)
+        if (input.DirectObjects.Count == 0)
         {
             return CommandResult.Error("Examine what? Specify an object.");
         }
 
-        var objectName = string.Join(" ", args).ToLower();
+        var objectName = input.DirectObjects[0].ToLower();
         var room = await gameState.GetCurrentRoomAsync();
 
         if (room == null)
@@ -24,50 +24,48 @@ public class ExamineCommand : IGameCommand
             return CommandResult.Error("You seem to be nowhere. This is a bug!");
         }
 
-        // Get completed actions for this save to check what's been revealed
-        var completedActionIds = await gameState.Context.CompletedActions
-            .Where(ca => ca.GameSaveId == gameState.CurrentSaveId)
-            .Select(ca => ca.RoomActionId)
-            .ToListAsync();
+        // Use SemanticResolver to find examinable objects
+        var resolver = new SemanticResolver(gameState.Context);
+        var examinableObject = await resolver.ResolveExaminableObjectAsync(objectName, room.Id);
 
-        // Find examinable objects in the room
-        var examinableObject = await gameState.Context.ExaminableObjects
-            .Where(eo => eo.RoomId == room.Id)
-            .Where(eo => !eo.IsHidden ||
-                        (eo.RevealedByActionId.HasValue && completedActionIds.Contains(eo.RevealedByActionId.Value)))
-            .FirstOrDefaultAsync(eo => eo.Name.ToLower().Contains(objectName) ||
-                                      (eo.Keywords != null && eo.Keywords.ToLower().Contains(objectName)));
+        if (examinableObject != null)
+        {
+            // Check if hidden and not revealed yet
+            if (examinableObject.IsHidden)
+            {
+                if (examinableObject.RevealedByActionId.HasValue)
+                {
+                    var isRevealed = await gameState.Context.CompletedActions
+                        .AnyAsync(ca => ca.GameSaveId == gameState.CurrentSaveId &&
+                                       ca.RoomActionId == examinableObject.RevealedByActionId.Value);
+
+                    if (!isRevealed)
+                    {
+                        examinableObject = null; // Not revealed yet
+                    }
+                }
+                else
+                {
+                    examinableObject = null; // Hidden with no reveal condition
+                }
+            }
+        }
 
         if (examinableObject != null)
         {
             return CommandResult.Ok(examinableObject.Description);
         }
 
-        // Also allow examining items in the room or inventory
-        var itemsInInventory = await gameState.Context.InventoryItems
-            .Where(ii => ii.GameSaveId == gameState.CurrentSaveId)
-            .Select(ii => ii.ItemId)
-            .ToListAsync();
+        // Also allow examining items in the room or inventory using semantic resolver
+        var item = await resolver.ResolveItemAsync(
+            objectName,
+            gameState,
+            includeInventory: true,
+            includeRoom: true);
 
-        // Check room items
-        var roomItem = await gameState.Context.Items
-            .FirstOrDefaultAsync(i => (i.RoomId == room.Id || itemsInInventory.Contains(i.Id)) &&
-                                     i.Name.ToLower().Contains(objectName));
-
-        if (roomItem != null)
+        if (item != null)
         {
-            return CommandResult.Ok(roomItem.Description);
-        }
-
-        // Check placed items
-        var placedItem = await gameState.Context.PlacedItems
-            .Include(pi => pi.Item)
-            .Where(pi => pi.GameSaveId == gameState.CurrentSaveId && pi.RoomId == room.Id)
-            .FirstOrDefaultAsync(pi => pi.Item.Name.ToLower().Contains(objectName));
-
-        if (placedItem != null)
-        {
-            return CommandResult.Ok(placedItem.Item.Description);
+            return CommandResult.Ok(item.Description);
         }
 
         return CommandResult.Error($"You don't see anything special about '{objectName}'.");

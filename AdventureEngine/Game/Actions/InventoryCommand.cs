@@ -9,7 +9,7 @@ public class InventoryCommand : IGameCommand
     public string Description => "Show your inventory";
     public string[] Aliases => ["i", "inv"];
 
-    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
         var inventory = await gameState.Context.InventoryItems
             .Include(ii => ii.Item)

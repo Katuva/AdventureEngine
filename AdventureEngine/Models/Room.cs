@@ -24,6 +24,13 @@ public class Room
     public int DamageAmount { get; set; }
     public string? DeathMessage { get; set; }
     public string? WinMessage { get; set; }
+    public int? ProtectionItemId { get; set; }  // Item that protects from damage
+    public Item? ProtectionItem { get; set; }
+
+    /// <summary>
+    /// Required state for the protection item (e.g., "lit" for lantern, null for items that just need to be carried)
+    /// </summary>
+    public string? RequiredItemState { get; set; }
 
     // Navigation relationships
     public Room? NorthRoom { get; set; }

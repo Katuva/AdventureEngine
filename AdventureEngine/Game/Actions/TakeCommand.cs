@@ -10,66 +10,69 @@ public class TakeCommand : IGameCommand
     public string Description => "Pick up an item";
     public string[] Aliases => ["get", "grab", "pick"];
 
-    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
-        if (args.Length == 0)
+        if (input.DirectObjects.Count == 0)
         {
             return CommandResult.Error("Take what? Specify an item name.");
         }
 
-        var itemName = string.Join(" ", args).ToLower();
+        // Support multiple objects: "take lamp and sword"
+        if (input.HasMultipleObjects)
+        {
+            var results = new List<string>();
+            foreach (var itemName in input.DirectObjects)
+            {
+                var result = await TakeSingleItem(gameState, itemName.ToLower());
+                results.Add(result);
+            }
+            return CommandResult.Ok(string.Join("\n", results));
+        }
+
+        // Single object
+        var singleResult = await TakeSingleItem(gameState, input.DirectObjects[0].ToLower());
+        return CommandResult.Ok(singleResult);
+    }
+
+    private async Task<string> TakeSingleItem(GameStateManager gameState, string itemName)
+    {
         var room = await gameState.GetCurrentRoomAsync();
 
         if (room == null)
         {
-            return CommandResult.Error("You seem to be nowhere. This is a bug!");
+            return "You seem to be nowhere. This is a bug!";
         }
 
-        // Get items in this save's inventory
-        var itemsInInventory = await gameState.Context.InventoryItems
-            .Where(ii => ii.GameSaveId == gameState.CurrentSaveId)
-            .Select(ii => ii.ItemId)
-            .ToListAsync();
-
-        // First, try to find the item in the room's original items
-        var item = await gameState.Context.Items
-            .FirstOrDefaultAsync(i => i.RoomId == room.Id &&
-                                      i.Name.ToLower().Contains(itemName) &&
-                                      !itemsInInventory.Contains(i.Id));
-
-        // If not found, check placed items
-        PlacedItem? placedItem = null;
-        if (item == null)
-        {
-            placedItem = await gameState.Context.PlacedItems
-                .Include(pi => pi.Item)
-                .FirstOrDefaultAsync(pi => pi.GameSaveId == gameState.CurrentSaveId &&
-                                          pi.RoomId == room.Id &&
-                                          pi.Item.Name.ToLower().Contains(itemName));
-
-            if (placedItem != null)
-            {
-                item = placedItem.Item;
-            }
-        }
+        // Use SemanticResolver to find the item with adjective support
+        var resolver = new SemanticResolver(gameState.Context);
+        var item = await resolver.ResolveItemAsync(
+            itemName,
+            gameState,
+            includeInventory: false,  // Don't include inventory when taking
+            includeRoom: true);
 
         if (item == null)
         {
-            return CommandResult.Error($"There is no '{itemName}' here.");
+            return $"There is no '{itemName}' here.";
         }
 
         if (!item.IsCollectable)
         {
-            return CommandResult.Error($"You can't take the {item.Name}.");
+            return $"You can't take the {item.Name}.";
         }
 
-        // If this was a placed item, remove it from placed items
+        // Check if this is a placed item and remove it
+        var placedItem = await gameState.Context.PlacedItems
+            .FirstOrDefaultAsync(pi => pi.GameSaveId == gameState.CurrentSaveId &&
+                                      pi.ItemId == item.Id &&
+                                      pi.RoomId == room.Id);
+
         if (placedItem != null)
         {
             gameState.Context.PlacedItems.Remove(placedItem);
         }
 
         await gameState.AddItemToInventoryAsync(item.Id);
-        return CommandResult.Ok($"You take the {item.Name}.");
+        return $"Taken: {item.Name}";
     }
 }

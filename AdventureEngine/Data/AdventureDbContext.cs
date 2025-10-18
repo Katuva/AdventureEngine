@@ -17,6 +17,11 @@ public class AdventureDbContext : DbContext
     public DbSet<PlacedItem> PlacedItems => Set<PlacedItem>();
     public DbSet<ExaminableObject> ExaminableObjects => Set<ExaminableObject>();
     public DbSet<CompletedExaminableInteraction> CompletedExaminableInteractions => Set<CompletedExaminableInteraction>();
+    public DbSet<Vocabulary> Vocabularies => Set<Vocabulary>();
+    public DbSet<ItemAdjective> ItemAdjectives => Set<ItemAdjective>();
+    public DbSet<PlayerContext> PlayerContexts => Set<PlayerContext>();
+    public DbSet<ItemState> ItemStates => Set<ItemState>();
+    public DbSet<RoomDescription> RoomDescriptions => Set<RoomDescription>();
 
     public AdventureDbContext(DbContextOptions<AdventureDbContext> options) : base(options)
     {
@@ -181,6 +186,87 @@ public class AdventureDbContext : DbContext
             .HasOne(cei => cei.ExaminableObject)
             .WithMany()
             .HasForeignKey(cei => cei.ExaminableObjectId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Configure Vocabulary
+        modelBuilder.Entity<Vocabulary>()
+            .HasIndex(v => new { v.Word, v.WordType })
+            .IsUnique();
+
+        // Configure ItemAdjective
+        modelBuilder.Entity<ItemAdjective>()
+            .HasOne(ia => ia.Item)
+            .WithMany()
+            .HasForeignKey(ia => ia.ItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ItemAdjective>()
+            .HasIndex(ia => new { ia.ItemId, ia.Adjective })
+            .IsUnique();
+
+        // Configure PlayerContext
+        modelBuilder.Entity<PlayerContext>()
+            .HasOne(pc => pc.GameSave)
+            .WithMany()
+            .HasForeignKey(pc => pc.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PlayerContext>()
+            .HasOne(pc => pc.LastMentionedItem)
+            .WithMany()
+            .HasForeignKey(pc => pc.LastMentionedItemId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PlayerContext>()
+            .HasOne(pc => pc.LastExaminedObject)
+            .WithMany()
+            .HasForeignKey(pc => pc.LastExaminedObjectId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PlayerContext>()
+            .HasOne(pc => pc.LastRoom)
+            .WithMany()
+            .HasForeignKey(pc => pc.LastRoomId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PlayerContext>()
+            .HasIndex(pc => pc.GameSaveId)
+            .IsUnique();
+
+        // Configure ItemState
+        modelBuilder.Entity<ItemState>()
+            .HasOne(ist => ist.GameSave)
+            .WithMany()
+            .HasForeignKey(ist => ist.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ItemState>()
+            .HasOne(ist => ist.Item)
+            .WithMany()
+            .HasForeignKey(ist => ist.ItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ItemState>()
+            .HasIndex(ist => new { ist.GameSaveId, ist.ItemId })
+            .IsUnique();
+
+        // Configure RoomDescription
+        modelBuilder.Entity<RoomDescription>()
+            .HasOne(rd => rd.Room)
+            .WithMany()
+            .HasForeignKey(rd => rd.RoomId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RoomDescription>()
+            .HasOne(rd => rd.RequiredItem)
+            .WithMany()
+            .HasForeignKey(rd => rd.RequiredItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RoomDescription>()
+            .HasOne(rd => rd.RequiredAction)
+            .WithMany()
+            .HasForeignKey(rd => rd.RequiredActionId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

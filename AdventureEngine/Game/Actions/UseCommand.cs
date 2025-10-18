@@ -10,36 +10,26 @@ public class UseCommand : IGameCommand
     public string Description => "Use an item from your inventory (optionally 'on' something)";
     public string[] Aliases => ["activate"];
 
-    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
-        if (args.Length == 0)
+        if (input.DirectObjects.Count == 0)
         {
             return CommandResult.Error("Use what? Specify an item name.");
         }
 
-        var fullInput = string.Join(" ", args).ToLower();
+        // Get item name and target from parsed input
+        var itemName = input.DirectObjects[0].ToLower();
+        var targetName = input.IndirectObject?.ToLower();
 
-        // Check if using "use [item] on [target]" syntax
-        string itemName;
-        string? targetName = null;
+        // Use SemanticResolver to find the item in inventory
+        var resolver = new SemanticResolver(gameState.Context);
+        var item = await resolver.ResolveItemAsync(
+            itemName,
+            gameState,
+            includeInventory: true,
+            includeRoom: false);
 
-        if (fullInput.Contains(" on "))
-        {
-            var parts = fullInput.Split(" on ", 2);
-            itemName = parts[0].Trim();
-            targetName = parts[1].Trim();
-        }
-        else
-        {
-            itemName = fullInput;
-        }
-
-        var inventoryItem = await gameState.Context.InventoryItems
-            .Include(ii => ii.Item)
-            .FirstOrDefaultAsync(ii => ii.GameSaveId == gameState.CurrentSaveId &&
-                                      ii.Item.Name.ToLower().Contains(itemName));
-
-        if (inventoryItem == null)
+        if (item == null)
         {
             return CommandResult.Error($"You don't have '{itemName}' in your inventory.");
         }
@@ -53,13 +43,22 @@ public class UseCommand : IGameCommand
         // If using on a target, check for interactions
         if (targetName != null)
         {
-            // First, check for examinable object interactions
-            var examinableObject = await gameState.Context.ExaminableObjects
-                .Include(eo => eo.UnlocksRoom)
-                .FirstOrDefaultAsync(eo => eo.RoomId == room.Id &&
-                                          eo.RequiredItemId == inventoryItem.ItemId &&
-                                          (eo.Name.ToLower().Contains(targetName) ||
-                                           (eo.Keywords != null && eo.Keywords.ToLower().Contains(targetName))));
+            // First, check for examinable object interactions using resolver
+            var examinableObject = await resolver.ResolveExaminableObjectAsync(targetName, room.Id);
+
+            // Check if this examinable requires our item
+            if (examinableObject != null && examinableObject.RequiredItemId != item.Id)
+            {
+                examinableObject = null; // Wrong item for this object
+            }
+
+            // Load the unlocks room if needed
+            if (examinableObject != null && examinableObject.UnlocksRoomId.HasValue)
+            {
+                await gameState.Context.Entry(examinableObject)
+                    .Reference(eo => eo.UnlocksRoom)
+                    .LoadAsync();
+            }
 
             if (examinableObject != null)
             {
@@ -83,7 +82,7 @@ public class UseCommand : IGameCommand
                 gameState.Context.CompletedExaminableInteractions.Add(completedInteraction);
                 await gameState.Context.SaveChangesAsync();
 
-                return CommandResult.Ok(examinableObject.SuccessMessage ?? $"You use the {inventoryItem.Item.Name} on the {examinableObject.Name}.");
+                return CommandResult.Ok(examinableObject.SuccessMessage ?? $"You use the {item.Name} on the {examinableObject.Name}.");
             }
 
             // Check for room actions that match
@@ -94,7 +93,7 @@ public class UseCommand : IGameCommand
 
             var roomAction = await gameState.Context.RoomActions
                 .FirstOrDefaultAsync(ra => ra.RoomId == room.Id &&
-                                          ra.RequiredItemId == inventoryItem.ItemId &&
+                                          ra.RequiredItemId == item.Id &&
                                           !completedActionIds.Contains(ra.Id) &&
                                           (ra.ActionName.ToLower().Contains(targetName) ||
                                            ra.Description.ToLower().Contains(targetName)));
@@ -119,11 +118,11 @@ public class UseCommand : IGameCommand
                 return CommandResult.Ok(roomAction.SuccessMessage ?? "Success!");
             }
 
-            return CommandResult.Error($"You can't use the {inventoryItem.Item.Name} on {targetName}.");
+            return CommandResult.Error($"You can't use the {item.Name} on {targetName}.");
         }
 
         // Default use behavior
-        var message = inventoryItem.Item.UseMessage ?? $"You use the {inventoryItem.Item.Name}.";
+        var message = item.UseMessage ?? $"You use the {item.Name}.";
         return CommandResult.Ok(message);
     }
 }

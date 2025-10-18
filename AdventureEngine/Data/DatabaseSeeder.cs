@@ -45,10 +45,11 @@ public class DatabaseSeeder(AdventureDbContext context)
         var cellar = new Room
         {
             Name = "Dark Cellar",
-            Description = "The cellar is pitch black and smells of mold and decay. You can barely see your hand in front of your face. Strange sounds echo from the darkness.",
+            Description = "A cellar beneath the kitchen.",  // Fallback only - conditional descriptions are used
             IsDeadlyRoom = true,
             DamageAmount = 30,
             DeathMessage = "Without a light source, you stumble in the darkness and hurt yourself."
+            // ProtectionItemId will be set after lantern is created
         };
 
         var bedroom = new Room
@@ -119,18 +120,12 @@ public class DatabaseSeeder(AdventureDbContext context)
         context.Items.AddRange(lantern, key, book, statue);
         await context.SaveChangesAsync();
 
-        // Create room actions
-        var enterCellarSafely = new RoomAction
-        {
-            RoomId = cellar.Id,
-            ActionName = "use lantern",
-            Description = "Light your way with the lantern",
-            RequiredItemId = lantern.Id,
-            SuccessMessage = "The lantern's warm glow reveals the cellar is just an empty storage room. Nothing interesting here.",
-            FailureMessage = "It's too dark to see anything!",
-            IsRepeatable = true
-        };
+        // Set cellar protection: requires lit lantern
+        cellar.ProtectionItemId = lantern.Id;
+        cellar.RequiredItemState = ItemStates.Lit;  // Must be lit, not just carried
+        await context.SaveChangesAsync();
 
+        // Create room actions
         var readBook = new RoomAction
         {
             RoomId = library.Id,
@@ -142,7 +137,7 @@ public class DatabaseSeeder(AdventureDbContext context)
             IsRepeatable = true
         };
 
-        context.RoomActions.AddRange(enterCellarSafely, readBook);
+        context.RoomActions.Add(readBook);
         await context.SaveChangesAsync();
 
         // Update secret room connection (after action is created)
@@ -163,7 +158,7 @@ public class DatabaseSeeder(AdventureDbContext context)
         {
             RoomId = library.Id,
             Name = "book",
-            Description = "The ancient book's cover reads 'Secrets of the Mansion'. Opening it carefully, you read: 'The golden key lies where dreams are made. The secret door awaits those who possess it, hidden behind the northern bookshelf.'",
+            Description = "The ancient book's cover reads 'Secrets of the Mansion'. Opening it carefully, you read: 'The golden key lies where dreams are made. Those keen of eye will find the hidden door.'",
             Keywords = "ancient book,tome,secrets",
             IsHidden = false
         };
@@ -191,7 +186,54 @@ public class DatabaseSeeder(AdventureDbContext context)
         };
 
         context.ExaminableObjects.AddRange(statueExamine, bookExamine, trapdoorOutline, chandelier);
+        await context.SaveChangesAsync();
 
+        // Create conditional room descriptions
+        // Cellar with lit lantern (high priority)
+        var cellarLitDescription = new RoomDescription
+        {
+            RoomId = cellar.Id,
+            Description = "The lantern's warm glow reveals a stone cellar with dusty shelves lining the walls. Old wine bottles and forgotten storage crates fill the space. It's musty but harmless.",
+            Priority = 100,
+            ConditionType = DescriptionConditionTypes.ItemState,
+            RequiredItemId = lantern.Id,
+            RequiredItemState = ItemStates.Lit,
+            ItemMustBeOwned = true
+        };
+
+        // Cellar without lit lantern (default - lower priority)
+        var cellarDarkDescription = new RoomDescription
+        {
+            RoomId = cellar.Id,
+            Description = "The cellar is pitch black and smells of mold and decay. You can barely see your hand in front of your face. Strange sounds echo from the darkness. Without a light source, every step is treacherous.",
+            Priority = 0,
+            ConditionType = DescriptionConditionTypes.Default
+        };
+
+        context.RoomDescriptions.AddRange(cellarLitDescription, cellarDarkDescription);
+        await context.SaveChangesAsync();
+
+        // Create item adjectives for better semantic matching
+        var itemAdjectives = new List<ItemAdjective>
+        {
+            // Lantern adjectives
+            new ItemAdjective { ItemId = lantern.Id, Adjective = "brass", Priority = 2 },
+            new ItemAdjective { ItemId = lantern.Id, Adjective = "old", Priority = 1 },
+
+            // Key adjectives
+            new ItemAdjective { ItemId = key.Id, Adjective = "golden", Priority = 3 },
+            new ItemAdjective { ItemId = key.Id, Adjective = "ornate", Priority = 2 },
+
+            // Book adjectives
+            new ItemAdjective { ItemId = book.Id, Adjective = "ancient", Priority = 2 },
+            new ItemAdjective { ItemId = book.Id, Adjective = "leather", Priority = 1 },
+
+            // Statue adjectives
+            new ItemAdjective { ItemId = statue.Id, Adjective = "stone", Priority = 2 },
+            new ItemAdjective { ItemId = statue.Id, Adjective = "heavy", Priority = 1 }
+        };
+
+        context.ItemAdjectives.AddRange(itemAdjectives);
         await context.SaveChangesAsync();
     }
 }

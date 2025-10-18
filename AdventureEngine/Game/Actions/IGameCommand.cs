@@ -11,7 +11,20 @@ public interface IGameCommand
     string Description { get; }
     string[] Aliases { get; }
 
-    Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args);
+    /// <summary>
+    /// Execute with parsed structured input (Phase 1: Enhanced parser)
+    /// </summary>
+    Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input);
+
+    /// <summary>
+    /// Legacy execute method for backward compatibility
+    /// Default implementation converts args to ParsedInput
+    /// </summary>
+    Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    {
+        var input = ParsedInput.CreateSimple(Name, args);
+        return ExecuteAsync(gameState, input);
+    }
 }
 
 /// <summary>

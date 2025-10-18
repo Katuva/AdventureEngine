@@ -16,6 +16,7 @@ public class GameEngine
     private readonly ConsoleUI _ui;
     private readonly GameConfiguration _config;
     private readonly CommandRegistry _commandRegistry;
+    private readonly CommandParser _commandParser;
     private GameStateManager _gameState = null!;
 
     public GameEngine(AdventureDbContext context, ConsoleUI ui, GameConfiguration config)
@@ -24,6 +25,7 @@ public class GameEngine
         _ui = ui;
         _config = config;
         _commandRegistry = new CommandRegistry();
+        _commandParser = new CommandParser();
         InitializeCommands();
     }
 
@@ -43,6 +45,8 @@ public class GameEngine
         _commandRegistry.RegisterCommand(new InventoryCommand());
         _commandRegistry.RegisterCommand(new UseCommand());
         _commandRegistry.RegisterCommand(new ActionCommand());
+        _commandRegistry.RegisterCommand(new LightCommand());
+        _commandRegistry.RegisterCommand(new ExtinguishCommand());
         _commandRegistry.RegisterCommand(new HelpCommand(_commandRegistry));
         _commandRegistry.RegisterCommand(new QuitCommand());
 
@@ -84,6 +88,7 @@ public class GameEngine
 
                 var currentHealth = await _gameState.GetHealthAsync();
                 _ui.ShowHealthBar(currentHealth, _config.StartingHealth);
+                AnsiConsole.WriteLine();
 
                 var input = _ui.GetInput();
 
@@ -92,19 +97,18 @@ public class GameEngine
                     continue;
                 }
 
-                var parts = input.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                var commandName = parts[0].ToLower();
-                var args = parts.Length > 1 ? parts[1..] : [];
+                // Parse the input using enhanced parser
+                var parsedInput = _commandParser.Parse(input);
 
-                var command = _commandRegistry.GetCommand(commandName);
+                var command = _commandRegistry.GetCommand(parsedInput.Verb);
 
                 if (command == null)
                 {
-                    _ui.ShowError($"Unknown command: {commandName}. Type 'help' for available commands.");
+                    _ui.ShowError($"Unknown command: {parsedInput.Verb}. Type 'help' for available commands.");
                     continue;
                 }
 
-                var result = await command.ExecuteAsync(_gameState, args);
+                var result = await command.ExecuteAsync(_gameState, parsedInput);
 
                 // Clear screen after command execution
                 AnsiConsole.Clear();

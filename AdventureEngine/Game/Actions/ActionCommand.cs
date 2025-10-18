@@ -9,9 +9,9 @@ public class ActionCommand : IGameCommand
     public string Description => "Perform a special action in this room";
     public string[] Aliases => ["do", "perform"];
 
-    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, string[] args)
+    public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
-        if (args.Length == 0)
+        if (input.DirectObjects.Count == 0)
         {
             // List available actions
             var room = await gameState.GetCurrentRoomAsync();
@@ -32,14 +32,34 @@ public class ActionCommand : IGameCommand
             return CommandResult.Ok(message.TrimEnd());
         }
 
-        var actionName = string.Join(" ", args).ToLower();
+        var actionName = input.DirectObjects[0].ToLower();
         var currentRoom = await gameState.GetCurrentRoomAsync();
 
+        // Try exact match first
         var roomAction = await gameState.Context.RoomActions
             .Include(ra => ra.RequiredItem)
             .Include(ra => ra.UnlocksRoom)
             .FirstOrDefaultAsync(ra => ra.RoomId == currentRoom!.Id &&
                                       ra.ActionName.ToLower() == actionName);
+
+        // Try fuzzy matching if exact match fails
+        if (roomAction == null)
+        {
+            var allActions = await gameState.Context.RoomActions
+                .Include(ra => ra.RequiredItem)
+                .Include(ra => ra.UnlocksRoom)
+                .Where(ra => ra.RoomId == currentRoom!.Id)
+                .ToListAsync();
+
+            foreach (var action in allActions)
+            {
+                if (FuzzyMatcher.IsSimilar(actionName, action.ActionName, maxDistance: 2))
+                {
+                    roomAction = action;
+                    break;
+                }
+            }
+        }
 
         if (roomAction == null)
         {
