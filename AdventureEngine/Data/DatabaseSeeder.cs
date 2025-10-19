@@ -145,19 +145,7 @@ public class DatabaseSeeder(AdventureDbContext context)
             DisappearsWhenEmpty = true // Disappears when all used
         };
 
-        var infinitePotion = new Item
-        {
-            Name = "Eternal Elixir",
-            Description = "A mystical crystal vial filled with an endless supply of shimmering red liquid with swirls of gold. The potion seems to refill itself magically.",
-            IsCollectable = true,
-            RoomId = bedroom.Id,
-            HealingAmount = 25,
-            MaxUses = 0, // Infinite uses!
-            UseMessage = "You drink from the eternal elixir. The magical liquid heals your wounds, and the vial refills itself instantly!",
-            DisappearsWhenEmpty = false // Never depletes, so never disappears
-        };
-
-        context.Items.AddRange(lantern, key, book, statue, healthPotion, bandages, infinitePotion);
+        context.Items.AddRange(lantern, key, book, statue, healthPotion, bandages);
         await context.SaveChangesAsync();
 
         // Set cellar protection and light source: requires lit lantern
@@ -325,8 +313,19 @@ public class DatabaseSeeder(AdventureDbContext context)
 
         context.ExaminableObjects.AddRange(hiddenSwitch, hiddenSafe, healingFountain, magicalHerbs);
         await context.SaveChangesAsync();
-
-        // Create treasure item
+        
+        // Create treasure items
+        var infinitePotion = new Item
+        {
+            Name = "Eternal Elixir",
+            Description = "A mystical crystal vial filled with an endless supply of shimmering red liquid with swirls of gold. The potion seems to refill itself magically.",
+            IsCollectable = true,
+            HealingAmount = 25,
+            MaxUses = 0, // Infinite uses!
+            UseMessage = "You drink from the eternal elixir. The magical liquid heals your wounds, and the vial refills itself instantly!",
+            DisappearsWhenEmpty = false // Never depletes, so never disappears
+        };
+        
         var treasure = new Item
         {
             Name = "Golden Amulet",
@@ -335,7 +334,7 @@ public class DatabaseSeeder(AdventureDbContext context)
             IsQuestItem = true
         };
 
-        context.Items.Add(treasure);
+        context.Items.AddRange(treasure, infinitePotion);
         await context.SaveChangesAsync();
 
         // Create treasure chest in the hidden compartment
@@ -359,13 +358,19 @@ public class DatabaseSeeder(AdventureDbContext context)
         await context.SaveChangesAsync();
 
         // Put treasure inside the chest
-        var chestItem = new ContainerItem
+        var chestItem1 = new ContainerItem
         {
             ContainerId = treasureChest.Id,
             ItemId = treasure.Id
         };
 
-        context.ContainerItems.Add(chestItem);
+        var chestItem2 = new ContainerItem
+        {
+            ContainerId = treasureChest.Id,
+            ItemId = infinitePotion.Id
+        };
+
+        context.ContainerItems.AddRange(chestItem1, chestItem2);
         await context.SaveChangesAsync();
 
         // Create conditional room descriptions

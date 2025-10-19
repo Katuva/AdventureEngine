@@ -7,7 +7,7 @@ public class ExamineCommand : IGameCommand
 {
     public string Name => "examine";
     public string Description => "Examine an object closely";
-    public string[] Aliases => ["inspect", "look at", "check"];
+    public string[] Aliases => ["inspect", "look at", "check", "x"];
 
     public async Task<CommandResult> ExecuteAsync(GameStateManager gameState, ParsedInput input)
     {
