@@ -73,9 +73,17 @@ public class ConsoleUI(GameConfiguration config)
 
     public void ShowHealthBar(int currentHealth, int maxHealth)
     {
+        // Ensure health values are valid
+        if (maxHealth <= 0) maxHealth = 100;
+        if (currentHealth < 0) currentHealth = 0;
+        if (currentHealth > maxHealth) currentHealth = maxHealth;
+
         var percentage = (double)currentHealth / maxHealth;
         var barWidth = 30;
         var filledWidth = (int)(barWidth * percentage);
+
+        // Ensure filledWidth is within valid range
+        filledWidth = Math.Max(0, Math.Min(filledWidth, barWidth));
 
         var color = percentage switch
         {

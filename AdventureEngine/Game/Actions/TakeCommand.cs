@@ -72,6 +72,21 @@ public class TakeCommand : IGameCommand
             gameState.Context.PlacedItems.Remove(placedItem);
         }
 
+        // Track that this item has been picked up (so it won't appear in original room anymore)
+        var alreadyPickedUp = await gameState.Context.PickedUpItems
+            .AnyAsync(pui => pui.GameSaveId == gameState.CurrentSaveId && pui.ItemId == item.Id);
+
+        if (!alreadyPickedUp)
+        {
+            var pickedUpItem = new PickedUpItem
+            {
+                GameSaveId = gameState.CurrentSaveId,
+                ItemId = item.Id,
+                FirstPickedUpAt = DateTime.UtcNow
+            };
+            gameState.Context.PickedUpItems.Add(pickedUpItem);
+        }
+
         await gameState.AddItemToInventoryAsync(item.Id);
 
         // Check if picking up this item reveals any hidden objects

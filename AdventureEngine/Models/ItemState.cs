@@ -34,4 +34,5 @@ public static class ItemStates
     public const string Closed = "closed";
     public const string Active = "active";
     public const string Inactive = "inactive";
+    public const string Empty = "empty";
 }

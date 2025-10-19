@@ -15,6 +15,12 @@ public class Item
     public int Weight { get; set; }
     public string? UseMessage { get; set; }
 
+    // Healing properties
+    public int HealingAmount { get; set; }
+    public int MaxUses { get; set; } = 1; // Default: single use (0 = unlimited)
+    public string? EmptyDescription { get; set; } // Description when item is empty
+    public bool DisappearsWhenEmpty { get; set; } // If true, item is removed from inventory when uses reach 0
+
     // Location tracking
     public int? RoomId { get; set; }
     public Room? Room { get; set; }

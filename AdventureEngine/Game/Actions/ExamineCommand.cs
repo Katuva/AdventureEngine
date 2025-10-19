@@ -34,7 +34,8 @@ public class ExamineCommand : IGameCommand
             var revealMessages = await gameState.CheckAndRevealExaminableObjectsAsync(
                 triggeredByExaminableId: examinableObject.Id);
 
-            var response = examinableObject.Description;
+            // Get description based on usage state
+            var response = await gameState.GetExaminableObjectDescriptionAsync(examinableObject);
 
             // Append reveal messages if any
             if (revealMessages.Count > 0)
@@ -52,6 +53,13 @@ public class ExamineCommand : IGameCommand
             includeInventory: true,
             includeRoom: true);
 
-        return item != null ? CommandResult.Ok(item.Description) : CommandResult.Error($"You don't see anything special about '{objectName}'.");
+        if (item != null)
+        {
+            // Get description based on usage state
+            var description = await gameState.GetItemDescriptionAsync(item);
+            return CommandResult.Ok(description);
+        }
+
+        return CommandResult.Error($"You don't see anything special about '{objectName}'.");
     }
 }

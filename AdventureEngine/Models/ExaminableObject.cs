@@ -1,4 +1,4 @@
-namespace AdventureEngine.Models;
+﻿namespace AdventureEngine.Models;
 
 /// <summary>
 /// Represents an object in a room that can be examined for details, secrets, or interactions
@@ -112,11 +112,6 @@ public class ExaminableObject
     public bool IsActivatable { get; set; }
 
     /// <summary>
-    /// If true, this object can only be activated once per save
-    /// </summary>
-    public bool IsOneTimeUse { get; set; }
-
-    /// <summary>
     /// Message shown when successfully activating this object
     /// If null, uses default: "You activate the [name] and you hear a click, but you can't tell if anything happened"
     /// </summary>
@@ -127,4 +122,19 @@ public class ExaminableObject
     /// </summary>
     public int? RevealsExaminableId { get; set; }
     public ExaminableObject? RevealsExaminable { get; set; }
+
+    /// <summary>
+    /// Healing properties - amount of health restored when activated
+    /// </summary>
+    public int HealingAmount { get; set; }
+
+    /// <summary>
+    /// Maximum number of times this object can be used/activated\r\n    /// 0 = unlimited uses, 1 = one-time use, any other integer = that many uses
+    /// </summary>
+    public int MaxUses { get; set; } = 1;
+
+    /// <summary>
+    /// Description shown when examining this object after it's been depleted
+    /// </summary>
+    public string? EmptyDescription { get; set; }
 }

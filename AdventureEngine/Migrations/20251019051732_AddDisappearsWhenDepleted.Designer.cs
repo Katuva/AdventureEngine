@@ -3,6 +3,7 @@ using System;
 using AdventureEngine.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AdventureEngine.Migrations
 {
     [DbContext(typeof(AdventureDbContext))]
-    partial class AdventureDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251019051732_AddDisappearsWhenDepleted")]
+    partial class AddDisappearsWhenDepleted
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -292,7 +295,7 @@ namespace AdventureEngine.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("DisappearsWhenEmpty")
+                    b.Property<bool>("DisappearsWhenDepleted")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("EmptyDescription")
@@ -411,31 +414,6 @@ namespace AdventureEngine.Migrations
                     b.ToTable("ItemUsages");
                 });
 
-            modelBuilder.Entity("AdventureEngine.Models.PickedUpItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("FirstPickedUpAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("GameSaveId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ItemId");
-
-                    b.HasIndex("GameSaveId", "ItemId")
-                        .IsUnique();
-
-                    b.ToTable("PickedUpItems");
-                });
-
             modelBuilder.Entity("AdventureEngine.Models.PlacedItem", b =>
                 {
                     b.Property<int>("Id")
@@ -498,31 +476,6 @@ namespace AdventureEngine.Migrations
                     b.HasIndex("LastRoomId");
 
                     b.ToTable("PlayerContexts");
-                });
-
-            modelBuilder.Entity("AdventureEngine.Models.RemovedItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("GameSaveId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("RemovedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ItemId");
-
-                    b.HasIndex("GameSaveId", "ItemId")
-                        .IsUnique();
-
-                    b.ToTable("RemovedItems");
                 });
 
             modelBuilder.Entity("AdventureEngine.Models.RevealedExaminableObject", b =>
@@ -1005,25 +958,6 @@ namespace AdventureEngine.Migrations
                     b.Navigation("Item");
                 });
 
-            modelBuilder.Entity("AdventureEngine.Models.PickedUpItem", b =>
-                {
-                    b.HasOne("AdventureEngine.Models.GameSave", "GameSave")
-                        .WithMany()
-                        .HasForeignKey("GameSaveId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("AdventureEngine.Models.Item", "Item")
-                        .WithMany()
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("GameSave");
-
-                    b.Navigation("Item");
-                });
-
             modelBuilder.Entity("AdventureEngine.Models.PlacedItem", b =>
                 {
                     b.HasOne("AdventureEngine.Models.GameSave", "GameSave")
@@ -1081,25 +1015,6 @@ namespace AdventureEngine.Migrations
                     b.Navigation("LastMentionedItem");
 
                     b.Navigation("LastRoom");
-                });
-
-            modelBuilder.Entity("AdventureEngine.Models.RemovedItem", b =>
-                {
-                    b.HasOne("AdventureEngine.Models.GameSave", "GameSave")
-                        .WithMany()
-                        .HasForeignKey("GameSaveId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("AdventureEngine.Models.Item", "Item")
-                        .WithMany()
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("GameSave");
-
-                    b.Navigation("Item");
                 });
 
             modelBuilder.Entity("AdventureEngine.Models.RevealedExaminableObject", b =>

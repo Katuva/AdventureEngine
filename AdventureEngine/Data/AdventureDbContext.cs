@@ -25,6 +25,10 @@ public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : 
     public DbSet<VisitedRoom> VisitedRooms => Set<VisitedRoom>();
     public DbSet<RevealedExaminableObject> RevealedExaminableObjects => Set<RevealedExaminableObject>();
     public DbSet<ActivatedExaminableObject> ActivatedExaminableObjects => Set<ActivatedExaminableObject>();
+    public DbSet<ItemUsage> ItemUsages => Set<ItemUsage>();
+    public DbSet<ExaminableObjectUsage> ExaminableObjectUsages => Set<ExaminableObjectUsage>();
+    public DbSet<RemovedItem> RemovedItems => Set<RemovedItem>();
+    public DbSet<PickedUpItem> PickedUpItems => Set<PickedUpItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -65,6 +69,13 @@ public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : 
             .HasOne(r => r.DownRoom)
             .WithMany()
             .HasForeignKey(r => r.DownRoomId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Configure Room light source item
+        modelBuilder.Entity<Room>()
+            .HasOne(r => r.LightSourceItem)
+            .WithMany()
+            .HasForeignKey(r => r.LightSourceItemId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Configure Item-Room relationship
@@ -335,6 +346,74 @@ public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : 
 
         modelBuilder.Entity<ActivatedExaminableObject>()
             .HasIndex(aeo => new { aeo.GameSaveId, aeo.ExaminableObjectId })
+            .IsUnique();
+
+        // Configure ItemUsage
+        modelBuilder.Entity<ItemUsage>()
+            .HasOne(iu => iu.GameSave)
+            .WithMany()
+            .HasForeignKey(iu => iu.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ItemUsage>()
+            .HasOne(iu => iu.Item)
+            .WithMany()
+            .HasForeignKey(iu => iu.ItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ItemUsage>()
+            .HasIndex(iu => new { iu.GameSaveId, iu.ItemId })
+            .IsUnique();
+
+        // Configure ExaminableObjectUsage
+        modelBuilder.Entity<ExaminableObjectUsage>()
+            .HasOne(eou => eou.GameSave)
+            .WithMany()
+            .HasForeignKey(eou => eou.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ExaminableObjectUsage>()
+            .HasOne(eou => eou.ExaminableObject)
+            .WithMany()
+            .HasForeignKey(eou => eou.ExaminableObjectId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ExaminableObjectUsage>()
+            .HasIndex(eou => new { eou.GameSaveId, eou.ExaminableObjectId })
+            .IsUnique();
+
+        // Configure RemovedItem
+        modelBuilder.Entity<RemovedItem>()
+            .HasOne(ri => ri.GameSave)
+            .WithMany()
+            .HasForeignKey(ri => ri.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RemovedItem>()
+            .HasOne(ri => ri.Item)
+            .WithMany()
+            .HasForeignKey(ri => ri.ItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RemovedItem>()
+            .HasIndex(ri => new { ri.GameSaveId, ri.ItemId })
+            .IsUnique();
+
+        // Configure PickedUpItem
+        modelBuilder.Entity<PickedUpItem>()
+            .HasOne(pui => pui.GameSave)
+            .WithMany()
+            .HasForeignKey(pui => pui.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PickedUpItem>()
+            .HasOne(pui => pui.Item)
+            .WithMany()
+            .HasForeignKey(pui => pui.ItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PickedUpItem>()
+            .HasIndex(pui => new { pui.GameSaveId, pui.ItemId })
             .IsUnique();
     }
 }

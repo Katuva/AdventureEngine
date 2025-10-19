@@ -21,7 +21,12 @@ public class InventoryCommand : IGameCommand
             return CommandResult.Ok("Your inventory is empty.");
         }
 
-        var message = inventory.Aggregate("You are carrying:\n", (current, invItem) => current + $"  - {invItem.Item.Name}: {invItem.Item.Description}\n");
+        var message = "You are carrying:\n";
+        foreach (var invItem in inventory)
+        {
+            var itemDesc = await gameState.GetItemDescriptionAsync(invItem.Item);
+            message += $"  - {invItem.Item.Name}: {itemDesc}\n";
+        }
 
         return CommandResult.Ok(message.TrimEnd());
     }

@@ -297,27 +297,9 @@ public class SemanticResolver
             var room = await gameState.GetCurrentRoomAsync();
             if (room != null)
             {
-                // Get items in this save's inventory to exclude them
-                var itemsInInventory = await _context.InventoryItems
-                    .Where(ii => ii.GameSaveId == gameState.CurrentSaveId)
-                    .Select(ii => ii.ItemId)
-                    .ToListAsync();
-
-                // Get original room items
-                var roomItems = await _context.Items
-                    .Where(i => i.RoomId == room.Id && !itemsInInventory.Contains(i.Id))
-                    .ToListAsync();
-
+                // Use GameStateManager's centralized method that handles picked up, removed, and placed items
+                var roomItems = await gameState.GetRoomItemsAsync(room.Id);
                 items.AddRange(roomItems);
-
-                // Get placed items
-                var placedItems = await _context.PlacedItems
-                    .Include(pi => pi.Item)
-                    .Where(pi => pi.GameSaveId == gameState.CurrentSaveId && pi.RoomId == room.Id)
-                    .Select(pi => pi.Item)
-                    .ToListAsync();
-
-                items.AddRange(placedItems);
             }
         }
 

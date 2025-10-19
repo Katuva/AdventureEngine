@@ -24,6 +24,9 @@ public class Room
     public int DamageAmount { get; set; }
     public string? DeathMessage { get; set; }
     public string? WinMessage { get; set; }
+    public bool IsDark { get; set; }  // If true, requires light source to see
+    public int? LightSourceItemId { get; set; }  // Item that provides light (e.g., lantern)
+    public Item? LightSourceItem { get; set; }
     public int? ProtectionItemId { get; set; }  // Item that protects from damage
     public Item? ProtectionItem { get; set; }
 

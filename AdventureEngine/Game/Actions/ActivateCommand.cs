@@ -38,13 +38,17 @@ public class ActivateCommand : IGameCommand
             return CommandResult.Error($"You can't activate the {examinableObject.Name}.");
         }
 
-        // Check if already activated and is one-time use
-        if (examinableObject.IsOneTimeUse)
+        // Check if object has limited uses
+        if (examinableObject.MaxUses > 0)
         {
-            var alreadyActivated = await gameState.IsExaminableActivatedAsync(examinableObject.Id);
-            if (alreadyActivated)
+            var usageCount = await gameState.GetExaminableObjectUsageCountAsync(examinableObject.Id);
+            if (usageCount >= examinableObject.MaxUses)
             {
-                return CommandResult.Error($"The {examinableObject.Name} has already been activated.");
+                // Show empty description if available, otherwise generic message
+                var message = !string.IsNullOrEmpty(examinableObject.EmptyDescription)
+                    ? examinableObject.EmptyDescription
+                    : $"The {examinableObject.Name} has already been used.";
+                return CommandResult.Error(message);
             }
         }
 

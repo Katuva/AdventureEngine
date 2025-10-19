@@ -57,7 +57,7 @@ public class GameEngine
 
     public async Task RunAsync(int saveId)
     {
-        _gameState = new GameStateManager(_context);
+        _gameState = new GameStateManager(_context, _config);
         await _gameState.LoadGameAsync(saveId);
 
         _ui.ShowIntro();
@@ -87,7 +87,7 @@ public class GameEngine
                 }
 
                 var currentHealth = await _gameState.GetHealthAsync();
-                _ui.ShowHealthBar(currentHealth, _config.StartingHealth);
+                _ui.ShowHealthBar(currentHealth, _config.MaxHealth);
                 AnsiConsole.WriteLine();
 
                 var input = _ui.GetInput();

@@ -1,3 +1,4 @@
+using AdventureEngine.Config;
 using AdventureEngine.Data;
 using AdventureEngine.Models;
 using Microsoft.EntityFrameworkCore;
@@ -7,9 +8,10 @@ namespace AdventureEngine.Services;
 /// <summary>
 /// Manages the current game state including player position, inventory, and progress
 /// </summary>
-public class GameStateManager(AdventureDbContext context)
+public class GameStateManager(AdventureDbContext context, GameConfiguration config)
 {
     public AdventureDbContext Context { get; } = context;
+    public GameConfiguration Config { get; } = config;
     public int CurrentSaveId { get; private set; }
     private Room? _currentRoom;
 
@@ -222,6 +224,10 @@ public class GameStateManager(AdventureDbContext context)
             {
                 save.Health = 0;
             }
+            if (save.Health > Config.MaxHealth)
+            {
+                save.Health = Config.MaxHealth;
+            }
             await Context.SaveChangesAsync();
         }
     }
@@ -281,7 +287,7 @@ public class GameStateManager(AdventureDbContext context)
     }
 
     /// <summary>
-    /// Get all items visible in the current room (excludes inventory items)
+    /// Get all items visible in the current room (excludes inventory items, removed items, and picked up items)
     /// </summary>
     public async Task<List<Item>> GetRoomItemsAsync(int roomId)
     {
@@ -291,15 +297,30 @@ public class GameStateManager(AdventureDbContext context)
             .Select(ii => ii.ItemId)
             .ToListAsync();
 
-        // Get original room items that aren't in inventory
-        var originalItems = await Context.Items
-            .Where(i => i.RoomId == roomId && !itemsInInventory.Contains(i.Id))
+        // Get items that have been permanently removed from this save
+        var removedItems = await Context.RemovedItems
+            .Where(ri => ri.GameSaveId == CurrentSaveId)
+            .Select(ri => ri.ItemId)
             .ToListAsync();
 
-        // Get items placed in this room by this save
+        // Get items that have been picked up (so they don't appear in original room anymore)
+        var pickedUpItems = await Context.PickedUpItems
+            .Where(pui => pui.GameSaveId == CurrentSaveId)
+            .Select(pui => pui.ItemId)
+            .ToListAsync();
+
+        // Get original room items that aren't in inventory, haven't been removed, and haven't been picked up
+        var originalItems = await Context.Items
+            .Where(i => i.RoomId == roomId &&
+                       !itemsInInventory.Contains(i.Id) &&
+                       !removedItems.Contains(i.Id) &&
+                       !pickedUpItems.Contains(i.Id))
+            .ToListAsync();
+
+        // Get items placed in this room by this save (and not removed)
         var placedItems = await Context.PlacedItems
             .Include(pi => pi.Item)
-            .Where(pi => pi.GameSaveId == CurrentSaveId && pi.RoomId == roomId)
+            .Where(pi => pi.GameSaveId == CurrentSaveId && pi.RoomId == roomId && !removedItems.Contains(pi.ItemId))
             .Select(pi => pi.Item)
             .ToListAsync();
 
@@ -442,6 +463,94 @@ public class GameStateManager(AdventureDbContext context)
     }
 
     /// <summary>
+    /// Get the number of times an examinable object has been used/activated in this save
+    /// </summary>
+    public async Task<int> GetExaminableObjectUsageCountAsync(int examinableObjectId)
+    {
+        var usage = await Context.ExaminableObjectUsages
+            .FirstOrDefaultAsync(eou => eou.GameSaveId == CurrentSaveId && eou.ExaminableObjectId == examinableObjectId);
+        return usage?.UsesCount ?? 0;
+    }
+
+    /// <summary>
+    /// Get the number of times an item has been used in this save
+    /// </summary>
+    public async Task<int> GetItemUsageCountAsync(int itemId)
+    {
+        var usage = await Context.ItemUsages
+            .FirstOrDefaultAsync(iu => iu.GameSaveId == CurrentSaveId && iu.ItemId == itemId);
+        return usage?.UsesCount ?? 0;
+    }
+
+    /// <summary>
+    /// Get the appropriate description for an examinable object based on its usage state
+    /// </summary>
+    public async Task<string> GetExaminableObjectDescriptionAsync(ExaminableObject examinableObject, bool useLookDescription = false)
+    {
+        // Check if object has limited uses and is depleted
+        if (examinableObject.MaxUses > 0 && !string.IsNullOrEmpty(examinableObject.EmptyDescription))
+        {
+            var usageCount = await GetExaminableObjectUsageCountAsync(examinableObject.Id);
+            if (usageCount >= examinableObject.MaxUses)
+            {
+                return examinableObject.EmptyDescription;
+            }
+        }
+
+        // Return normal description
+        return useLookDescription
+            ? (examinableObject.LookDescription ?? examinableObject.Description)
+            : examinableObject.Description;
+    }
+
+    /// <summary>
+    /// Get the appropriate description for an item based on its usage state
+    /// </summary>
+    public async Task<string> GetItemDescriptionAsync(Item item)
+    {
+        // Check if item has limited uses and is depleted
+        if (item.MaxUses > 0 && !string.IsNullOrEmpty(item.EmptyDescription))
+        {
+            var usageCount = await GetItemUsageCountAsync(item.Id);
+            if (usageCount >= item.MaxUses)
+            {
+                return item.EmptyDescription;
+            }
+        }
+
+        // Return normal description
+        return item.Description;
+    }
+
+    /// <summary>
+    /// Increment the usage count for an examinable object
+    /// </summary>
+    private async Task IncrementExaminableObjectUsageAsync(int examinableObjectId)
+    {
+        var usage = await Context.ExaminableObjectUsages
+            .FirstOrDefaultAsync(eou => eou.GameSaveId == CurrentSaveId && eou.ExaminableObjectId == examinableObjectId);
+
+        if (usage == null)
+        {
+            usage = new ExaminableObjectUsage
+            {
+                GameSaveId = CurrentSaveId,
+                ExaminableObjectId = examinableObjectId,
+                UsesCount = 1,
+                LastUsedAt = DateTime.UtcNow
+            };
+            Context.ExaminableObjectUsages.Add(usage);
+        }
+        else
+        {
+            usage.UsesCount++;
+            usage.LastUsedAt = DateTime.UtcNow;
+        }
+
+        await Context.SaveChangesAsync();
+    }
+
+    /// <summary>
     /// Activate an examinable object (e.g., switch, lever, button)
     /// Returns the activation message and any reveal messages
     /// </summary>
@@ -458,29 +567,49 @@ public class GameStateManager(AdventureDbContext context)
             throw new InvalidOperationException($"ExaminableObject {examinableObjectId} is not activatable");
         }
 
-        // Check if already activated and is one-time use
-        if (examinableObject.IsOneTimeUse)
+        // Check if object has limited uses
+        if (examinableObject.MaxUses > 0)
         {
-            var alreadyActivated = await IsExaminableActivatedAsync(examinableObjectId);
-            if (alreadyActivated)
+            var usageCount = await GetExaminableObjectUsageCountAsync(examinableObjectId);
+            if (usageCount >= examinableObject.MaxUses)
             {
-                throw new InvalidOperationException("Already activated");
+                throw new InvalidOperationException("Already used maximum times");
             }
+
+            // Increment usage count (only for limited-use objects)
+            await IncrementExaminableObjectUsageAsync(examinableObjectId);
         }
 
-        // Mark as activated
-        var activated = new ActivatedExaminableObject
+        // Mark as activated (for backward compatibility with existing activation tracking)
+        var alreadyActivated = await IsExaminableActivatedAsync(examinableObjectId);
+        if (!alreadyActivated)
         {
-            GameSaveId = CurrentSaveId,
-            ExaminableObjectId = examinableObjectId,
-            ActivatedAt = DateTime.UtcNow
-        };
-        Context.ActivatedExaminableObjects.Add(activated);
-        await Context.SaveChangesAsync();
+            var activated = new ActivatedExaminableObject
+            {
+                GameSaveId = CurrentSaveId,
+                ExaminableObjectId = examinableObjectId,
+                ActivatedAt = DateTime.UtcNow
+            };
+            Context.ActivatedExaminableObjects.Add(activated);
+            await Context.SaveChangesAsync();
+        }
+
+        // Apply healing if applicable
+        if (examinableObject.HealingAmount > 0)
+        {
+            await ModifyHealthAsync(examinableObject.HealingAmount);
+        }
 
         // Get activation message
         var activationMessage = examinableObject.ActivationMessage ??
             $"You activate the {examinableObject.Name} and you hear a click, but you can't tell if anything happened.";
+
+        // Add healing info to activation message if healing occurred
+        if (examinableObject.HealingAmount > 0)
+        {
+            var currentHealth = await GetHealthAsync();
+            activationMessage += $" You restored {examinableObject.HealingAmount} health. (Current health: {currentHealth})";
+        }
 
         // Check if this activation reveals any objects
         var revealMessages = new List<string>();

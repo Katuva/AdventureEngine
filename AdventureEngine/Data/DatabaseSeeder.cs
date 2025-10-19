@@ -48,8 +48,9 @@ public class DatabaseSeeder(AdventureDbContext context)
             Description = "A cellar beneath the kitchen.",  // Fallback only - conditional descriptions are used
             IsDeadlyRoom = true,
             DamageAmount = 30,
-            DeathMessage = "Without a light source, you stumble in the darkness and hurt yourself."
-            // ProtectionItemId will be set after lantern is created
+            DeathMessage = "Without a light source, you stumble in the darkness and hurt yourself.",
+            IsDark = true  // Requires light source to see
+            // ProtectionItemId and LightSourceItemId will be set after lantern is created
         };
 
         var bedroom = new Room
@@ -117,11 +118,51 @@ public class DatabaseSeeder(AdventureDbContext context)
             RoomId = foyer.Id
         };
 
-        context.Items.AddRange(lantern, key, book, statue);
+        // Healing items
+        var healthPotion = new Item
+        {
+            Name = "Health Potion",
+            Description = "A small glass vial filled with a shimmering red liquid. The label reads 'Restores vitality'.",
+            IsCollectable = true,
+            RoomId = kitchen.Id,
+            HealingAmount = 30,
+            MaxUses = 1, // Single use
+            UseMessage = "You drink the health potion. The warm liquid courses through your veins, mending your wounds.",
+            EmptyDescription = "The vial is empty.",
+            DisappearsWhenEmpty = false // Does not disappear after use
+        };
+
+        var bandages = new Item
+        {
+            Name = "Bandages",
+            Description = "A roll of clean white bandages. Good for treating minor wounds.",
+            IsCollectable = true,
+            RoomId = bedroom.Id,
+            HealingAmount = 15,
+            MaxUses = 3, // Can be used 3 times
+            UseMessage = "You apply the bandages to your wounds.",
+            EmptyDescription = "The bandages have all been used up.",
+            DisappearsWhenEmpty = true // Disappears when all used
+        };
+
+        var infinitePotion = new Item
+        {
+            Name = "Eternal Elixir",
+            Description = "A mystical crystal vial filled with an endless supply of shimmering red liquid with swirls of gold. The potion seems to refill itself magically.",
+            IsCollectable = true,
+            RoomId = bedroom.Id,
+            HealingAmount = 25,
+            MaxUses = 0, // Infinite uses!
+            UseMessage = "You drink from the eternal elixir. The magical liquid heals your wounds, and the vial refills itself instantly!",
+            DisappearsWhenEmpty = false // Never depletes, so never disappears
+        };
+
+        context.Items.AddRange(lantern, key, book, statue, healthPotion, bandages, infinitePotion);
         await context.SaveChangesAsync();
 
-        // Set cellar protection: requires lit lantern
+        // Set cellar protection and light source: requires lit lantern
         cellar.ProtectionItemId = lantern.Id;
+        cellar.LightSourceItemId = lantern.Id;
         cellar.RequiredItemState = ItemStates.Lit;  // Must be lit, not just carried
         await context.SaveChangesAsync();
 
@@ -226,7 +267,7 @@ public class DatabaseSeeder(AdventureDbContext context)
             RevealedByExaminableId = statueExamine.Id,
             RevealMessage = "As you examine the statue closely, you notice a small switch cleverly concealed among the carved symbols on its base!",
             IsActivatable = true,
-            IsOneTimeUse = true,
+            MaxUses = 1,
             ActivationMessage = "You press the hidden switch. You hear a distant grinding sound echo through the mansion!",
             RevealsExaminableId = hiddenCompartment.Id
         };
@@ -247,7 +288,42 @@ public class DatabaseSeeder(AdventureDbContext context)
             ShowRevealMessage = true  // Show message - player is in same room when taking book
         };
 
-        context.ExaminableObjects.AddRange(hiddenSwitch, hiddenSafe);
+        // Healing objects
+        var healingFountain = new ExaminableObject
+        {
+            RoomId = entrance.Id,
+            Name = "fountain",
+            DisplayName = "Healing Fountain",
+            Description = "An ancient stone fountain with crystal-clear water. A plaque reads: 'Waters of restoration, limited in power'.",
+            LookDescription = "A small stone fountain with shimmering water",
+            Keywords = "water,basin,well,healing fountain",
+            IsHidden = false,
+            ShowInRoomDescription = true,
+            IsActivatable = true,
+            HealingAmount = 20,
+            MaxUses = 5, // Limited uses
+            ActivationMessage = "You cup your hands and drink from the fountain. The cool water refreshes you.",
+            EmptyDescription = "The fountain has run dry. No more water flows from it."
+        };
+
+        var magicalHerbs = new ExaminableObject
+        {
+            RoomId = cellar.Id,
+            Name = "herbs",
+            DisplayName = "Magical Herbs",
+            Description = "A small patch of glowing herbs growing in a crack in the wall. They emit a faint, soothing aura.",
+            LookDescription = "Glowing herbs growing from a crack",
+            Keywords = "plants,herb,moss,magical herbs,glowing plants",
+            IsHidden = false,
+            ShowInRoomDescription = true,
+            IsActivatable = true,
+            HealingAmount = 50,
+            MaxUses = 1,
+            ActivationMessage = "You carefully pluck the herbs and consume them. Warmth spreads through your body as your wounds mend.",
+            EmptyDescription = "The herbs have been harvested. Only wilted stems remain."
+        };
+
+        context.ExaminableObjects.AddRange(hiddenSwitch, hiddenSafe, healingFountain, magicalHerbs);
         await context.SaveChangesAsync();
 
         // Create conditional room descriptions
@@ -292,7 +368,16 @@ public class DatabaseSeeder(AdventureDbContext context)
 
             // Statue adjectives
             new() { ItemId = statue.Id, Adjective = "stone", Priority = 2 },
-            new() { ItemId = statue.Id, Adjective = "heavy", Priority = 1 }
+            new() { ItemId = statue.Id, Adjective = "heavy", Priority = 1 },
+
+            // Health potion adjectives
+            new() { ItemId = healthPotion.Id, Adjective = "health", Priority = 3 },
+            new() { ItemId = healthPotion.Id, Adjective = "red", Priority = 2 },
+            new() { ItemId = healthPotion.Id, Adjective = "healing", Priority = 2 },
+
+            // Bandages adjectives
+            new() { ItemId = bandages.Id, Adjective = "white", Priority = 1 },
+            new() { ItemId = bandages.Id, Adjective = "clean", Priority = 1 }
         };
 
         context.ItemAdjectives.AddRange(itemAdjectives);

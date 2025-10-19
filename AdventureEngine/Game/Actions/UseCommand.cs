@@ -121,6 +121,107 @@ public class UseCommand : IGameCommand
             return CommandResult.Error($"You can't use the {item.Name} on {targetName}.");
         }
 
+        // Check if this is a healing item
+        if (item.HealingAmount > 0)
+        {
+            // Get usage count for this item in this save
+            var itemUsage = await gameState.Context.ItemUsages
+                .FirstOrDefaultAsync(iu => iu.GameSaveId == gameState.CurrentSaveId && iu.ItemId == item.Id);
+
+            var usesLeft = item.MaxUses - (itemUsage?.UsesCount ?? 0);
+
+            // Check if item is exhausted (and not unlimited)
+            if (item.MaxUses > 0 && usesLeft <= 0)
+            {
+                var emptyDesc = item.EmptyDescription ?? $"The {item.Name} is empty and cannot be used anymore.";
+                return CommandResult.Error(emptyDesc);
+            }
+
+            // Check if player is at max health
+            var currentHealth = await gameState.GetHealthAsync();
+            var maxHealth = gameState.Config.MaxHealth;
+
+            if (currentHealth >= maxHealth)
+            {
+                return CommandResult.Error("You're already at full health.");
+            }
+
+            // Apply healing
+            await gameState.ModifyHealthAsync(item.HealingAmount);
+            var newHealth = await gameState.GetHealthAsync();
+
+            // Track usage
+            if (item.MaxUses > 0) // Only track if not unlimited
+            {
+                if (itemUsage == null)
+                {
+                    itemUsage = new ItemUsage
+                    {
+                        GameSaveId = gameState.CurrentSaveId,
+                        ItemId = item.Id,
+                        UsesCount = 1,
+                        LastUsedAt = DateTime.UtcNow
+                    };
+                    gameState.Context.ItemUsages.Add(itemUsage);
+                }
+                else
+                {
+                    itemUsage.UsesCount++;
+                    itemUsage.LastUsedAt = DateTime.UtcNow;
+                }
+                await gameState.Context.SaveChangesAsync();
+
+                // Check if item is now empty
+                if (itemUsage.UsesCount >= item.MaxUses)
+                {
+                    // Set item state to empty
+                    await gameState.SetItemStateAsync(item.Id, ItemStates.Empty);
+                }
+            }
+
+            var healMessage = item.UseMessage ?? $"You use the {item.Name} and restore {item.HealingAmount} health.";
+            healMessage += $"\nHealth: {newHealth}";
+
+            // Check if item should be removed from inventory
+            if (item.MaxUses > 0)
+            {
+                var remaining = item.MaxUses - (itemUsage?.UsesCount ?? 0);
+                if (remaining > 0)
+                {
+                    healMessage += $"\n({remaining} use{(remaining == 1 ? "" : "s")} remaining)";
+                }
+                else if (item.DisappearsWhenEmpty)
+                {
+                    // Item is empty - remove from inventory if configured to disappear
+                    var inventoryItem = await gameState.Context.InventoryItems
+                        .FirstOrDefaultAsync(ii => ii.GameSaveId == gameState.CurrentSaveId && ii.ItemId == item.Id);
+
+                    if (inventoryItem != null)
+                    {
+                        gameState.Context.InventoryItems.Remove(inventoryItem);
+
+                        // Track as permanently removed so it doesn't reappear in original room
+                        var removedItem = new RemovedItem
+                        {
+                            GameSaveId = gameState.CurrentSaveId,
+                            ItemId = item.Id,
+                            RemovedAt = DateTime.UtcNow
+                        };
+                        gameState.Context.RemovedItems.Add(removedItem);
+
+                        await gameState.Context.SaveChangesAsync();
+                    }
+                }
+                else
+                {
+                    // Item is empty but doesn't disappear
+                    healMessage += $"\n(The {item.Name} is now empty)";
+                }
+            }
+
+            return CommandResult.Ok(healMessage);
+        }
+
         // Default use behavior
         var message = item.UseMessage ?? $"You use the {item.Name}.";
         return CommandResult.Ok(message);

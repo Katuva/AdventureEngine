@@ -12,6 +12,7 @@ public class GameConfiguration
     public int MaxInventoryWeight { get; set; } = 100;
     public int MaxSaveSlots { get; set; } = 5;
     public int StartingHealth { get; set; } = 100;
+    public int MaxHealth { get; set; } = 100;
     public string DatabasePath { get; set; } = "adventure.db";
     public UISettings UI { get; set; } = new();
 }
