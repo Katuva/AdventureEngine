@@ -47,6 +47,7 @@ public class GameEngine
         _commandRegistry.RegisterCommand(new ActionCommand());
         _commandRegistry.RegisterCommand(new LightCommand());
         _commandRegistry.RegisterCommand(new ExtinguishCommand());
+        _commandRegistry.RegisterCommand(new ActivateCommand());
         _commandRegistry.RegisterCommand(new HelpCommand(_commandRegistry));
         _commandRegistry.RegisterCommand(new QuitCommand());
 
@@ -120,13 +121,6 @@ public class GameEngine
                     _ui.ShowRoomHeader(currentRoomAfterCommand.Name);
                 }
 
-                // Display command result message
-                if (!string.IsNullOrWhiteSpace(result.Message))
-                {
-                    _ui.ShowMessage(result.Message);
-                    AnsiConsole.WriteLine();
-                }
-
                 // Handle game state changes
                 if (result.ShouldQuit)
                 {
@@ -135,6 +129,15 @@ public class GameEngine
                 else if (result.GameWon)
                 {
                     await _gameState.MarkGameCompletedAsync(true);
+
+                    // Show room description first (if present)
+                    if (!string.IsNullOrWhiteSpace(result.RoomDescription))
+                    {
+                        _ui.ShowMessage(result.RoomDescription);
+                        AnsiConsole.WriteLine();
+                        AnsiConsole.WriteLine();
+                    }
+
                     _ui.ShowGameOver(true, result.Message);
                     running = false;
                 }
@@ -143,6 +146,15 @@ public class GameEngine
                     await _gameState.MarkGameCompletedAsync(false);
                     _ui.ShowGameOver(false, result.Message);
                     running = false;
+                }
+                else
+                {
+                    // Display command result message for normal commands
+                    if (!string.IsNullOrWhiteSpace(result.Message))
+                    {
+                        _ui.ShowMessage(result.Message);
+                        AnsiConsole.WriteLine();
+                    }
                 }
             }
             catch (Exception ex)

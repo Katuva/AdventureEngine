@@ -92,6 +92,18 @@ public class ActionCommand : IGameCommand
             await gameState.Context.SaveChangesAsync();
         }
 
-        return CommandResult.Ok(roomAction.SuccessMessage ?? "Done!");
+        // Check if completing this action reveals any hidden objects
+        var revealMessages = await gameState.CheckAndRevealExaminableObjectsAsync(
+            triggeredByActionId: roomAction.Id);
+
+        var response = roomAction.SuccessMessage ?? "Done!";
+
+        // Append reveal messages if any
+        if (revealMessages.Count > 0)
+        {
+            response += "\n\n" + string.Join("\n", revealMessages);
+        }
+
+        return CommandResult.Ok(response);
     }
 }

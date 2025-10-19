@@ -1,6 +1,7 @@
 using Spectre.Console;
 using AdventureEngine.Config;
 using AdventureEngine.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace AdventureEngine.UI;
 
@@ -97,8 +98,6 @@ public class ConsoleUI(GameConfiguration config)
 
     public void ShowGameOver(bool won, string message)
     {
-        AnsiConsole.Clear();
-
         if (won)
         {
             var panel = new Panel(
@@ -161,23 +160,31 @@ public class ConsoleUI(GameConfiguration config)
         // Get console width for centering
         var consoleWidth = Console.WindowWidth;
 
+        // Check which connections are actually accessible (not locked by examinable interactions)
+        var upAccessible = room.UpRoomId.HasValue && await IsConnectionAccessibleAsync(gameState, room.Id, room.UpRoomId.Value);
+        var downAccessible = room.DownRoomId.HasValue && await IsConnectionAccessibleAsync(gameState, room.Id, room.DownRoomId.Value);
+        var northAccessible = room.NorthRoomId.HasValue && await IsConnectionAccessibleAsync(gameState, room.Id, room.NorthRoomId.Value);
+        var southAccessible = room.SouthRoomId.HasValue && await IsConnectionAccessibleAsync(gameState, room.Id, room.SouthRoomId.Value);
+        var eastAccessible = room.EastRoomId.HasValue && await IsConnectionAccessibleAsync(gameState, room.Id, room.EastRoomId.Value);
+        var westAccessible = room.WestRoomId.HasValue && await IsConnectionAccessibleAsync(gameState, room.Id, room.WestRoomId.Value);
+
         // Check which rooms have been visited
-        var upVisited = room.UpRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.UpRoomId.Value);
-        var downVisited = room.DownRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.DownRoomId.Value);
-        var northVisited = room.NorthRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.NorthRoomId.Value);
-        var southVisited = room.SouthRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.SouthRoomId.Value);
-        var eastVisited = room.EastRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.EastRoomId.Value);
-        var westVisited = room.WestRoomId.HasValue && await gameState.HasVisitedRoomAsync(room.WestRoomId.Value);
+        var upVisited = upAccessible && await gameState.HasVisitedRoomAsync(room.UpRoomId!.Value);
+        var downVisited = downAccessible && await gameState.HasVisitedRoomAsync(room.DownRoomId!.Value);
+        var northVisited = northAccessible && await gameState.HasVisitedRoomAsync(room.NorthRoomId!.Value);
+        var southVisited = southAccessible && await gameState.HasVisitedRoomAsync(room.SouthRoomId!.Value);
+        var eastVisited = eastAccessible && await gameState.HasVisitedRoomAsync(room.EastRoomId!.Value);
+        var westVisited = westAccessible && await gameState.HasVisitedRoomAsync(room.WestRoomId!.Value);
 
         // Build compass components with color coding
         // Unvisited (new areas): bright cyan/white
         // Visited: dim grey
-        var upChar = room.UpRoomId.HasValue ? (upVisited ? "[grey]U[/]" : "[bold cyan]U[/]") : " ";
-        var downChar = room.DownRoomId.HasValue ? (downVisited ? "[grey]D[/]" : "[bold cyan]D[/]") : " ";
-        var northChar = room.NorthRoomId.HasValue ? (northVisited ? "[grey]N[/]" : "[bold cyan]N[/]") : " ";
-        var southChar = room.SouthRoomId.HasValue ? (southVisited ? "[grey]S[/]" : "[bold cyan]S[/]") : " ";
-        var eastChar = room.EastRoomId.HasValue ? (eastVisited ? "[grey]E[/]" : "[bold cyan]E[/]") : " ";
-        var westChar = room.WestRoomId.HasValue ? (westVisited ? "[grey]W[/]" : "[bold cyan]W[/]") : " ";
+        var upChar = upAccessible ? (upVisited ? "[grey]U[/]" : "[bold cyan]U[/]") : " ";
+        var downChar = downAccessible ? (downVisited ? "[grey]D[/]" : "[bold cyan]D[/]") : " ";
+        var northChar = northAccessible ? (northVisited ? "[grey]N[/]" : "[bold cyan]N[/]") : " ";
+        var southChar = southAccessible ? (southVisited ? "[grey]S[/]" : "[bold cyan]S[/]") : " ";
+        var eastChar = eastAccessible ? (eastVisited ? "[grey]E[/]" : "[bold cyan]E[/]") : " ";
+        var westChar = westAccessible ? (westVisited ? "[grey]W[/]" : "[bold cyan]W[/]") : " ";
 
         var center = room.UpRoomId.HasValue || room.DownRoomId.HasValue ? "┼" : "+";
 
@@ -215,6 +222,25 @@ public class ConsoleUI(GameConfiguration config)
         // Display bottom line (S aligned with +, D to the right)
         var bottomSpacing = new string(' ', bottomLeftPadding);
         AnsiConsole.MarkupLine($"{bottomSpacing}{bottomPart}");
+    }
+
+    private async Task<bool> IsConnectionAccessibleAsync(GameStateManager gameState, int fromRoomId, int toRoomId)
+    {
+        // Check if this connection requires an examinable interaction to be unlocked
+        var requiredInteraction = await gameState.Context.ExaminableObjects
+            .FirstOrDefaultAsync(eo => eo.RoomId == fromRoomId && eo.UnlocksRoomId == toRoomId);
+
+        if (requiredInteraction == null)
+        {
+            return true; // No lock, connection is accessible
+        }
+
+        // Check if the player has completed this interaction
+        var hasCompleted = await gameState.Context.CompletedExaminableInteractions
+            .AnyAsync(cei => cei.GameSaveId == gameState.CurrentSaveId &&
+                            cei.ExaminableObjectId == requiredInteraction.Id);
+
+        return hasCompleted;
     }
 }
 

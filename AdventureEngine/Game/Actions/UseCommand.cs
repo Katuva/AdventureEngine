@@ -44,7 +44,7 @@ public class UseCommand : IGameCommand
         if (targetName != null)
         {
             // First, check for examinable object interactions using resolver
-            var examinableObject = await resolver.ResolveExaminableObjectAsync(targetName, room.Id);
+            var examinableObject = await resolver.ResolveExaminableObjectAsync(targetName, room.Id, gameState);
 
             // Check if this examinable requires our item
             if (examinableObject != null && examinableObject.RequiredItemId != item.Id)
@@ -72,6 +72,39 @@ public class UseCommand : IGameCommand
                     return CommandResult.Error("You've already done that.");
                 }
 
+                // Unlock room if applicable (for ExaminableObjects)
+                if (examinableObject.UnlocksRoomId.HasValue)
+                {
+                    var currentRoom = await gameState.Context.Rooms.FindAsync(room.Id);
+                    if (currentRoom != null)
+                    {
+                        // Update the room connection based on the unlock direction
+                        var direction = examinableObject.UnlockDirection?.ToLower() ?? "up";
+                        switch (direction)
+                        {
+                            case "north":
+                                currentRoom.NorthRoomId = examinableObject.UnlocksRoomId.Value;
+                                break;
+                            case "south":
+                                currentRoom.SouthRoomId = examinableObject.UnlocksRoomId.Value;
+                                break;
+                            case "east":
+                                currentRoom.EastRoomId = examinableObject.UnlocksRoomId.Value;
+                                break;
+                            case "west":
+                                currentRoom.WestRoomId = examinableObject.UnlocksRoomId.Value;
+                                break;
+                            case "up":
+                                currentRoom.UpRoomId = examinableObject.UnlocksRoomId.Value;
+                                break;
+                            case "down":
+                                currentRoom.DownRoomId = examinableObject.UnlocksRoomId.Value;
+                                break;
+                        }
+                        await gameState.Context.SaveChangesAsync();
+                    }
+                }
+
                 // Mark as completed for this save
                 var completedInteraction = new CompletedExaminableInteraction
                 {
@@ -83,39 +116,6 @@ public class UseCommand : IGameCommand
                 await gameState.Context.SaveChangesAsync();
 
                 return CommandResult.Ok(examinableObject.SuccessMessage ?? $"You use the {item.Name} on the {examinableObject.Name}.");
-            }
-
-            // Check for room actions that match
-            var completedActionIds = await gameState.Context.CompletedActions
-                .Where(ca => ca.GameSaveId == gameState.CurrentSaveId)
-                .Select(ca => ca.RoomActionId)
-                .ToListAsync();
-
-            var roomAction = await gameState.Context.RoomActions
-                .FirstOrDefaultAsync(ra => ra.RoomId == room.Id &&
-                                          ra.RequiredItemId == item.Id &&
-                                          !completedActionIds.Contains(ra.Id) &&
-                                          (ra.ActionName.ToLower().Contains(targetName) ||
-                                           ra.Description.ToLower().Contains(targetName)));
-
-            if (roomAction != null)
-            {
-                // Unlock room if applicable
-                if (roomAction.UnlocksRoomId.HasValue)
-                {
-                    var unlockRoom = await gameState.Context.Rooms.FindAsync(roomAction.UnlocksRoomId.Value);
-                    if (unlockRoom != null)
-                    {
-                        // Update the room connection
-                        room.UpRoomId = roomAction.UnlocksRoomId.Value;
-                        await gameState.Context.SaveChangesAsync();
-                    }
-                }
-
-                // Mark action as completed
-                await gameState.CompleteActionAsync(roomAction.Id);
-
-                return CommandResult.Ok(roomAction.SuccessMessage ?? "Success!");
             }
 
             return CommandResult.Error($"You can't use the {item.Name} on {targetName}.");

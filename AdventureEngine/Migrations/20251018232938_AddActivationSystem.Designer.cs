@@ -3,6 +3,7 @@ using System;
 using AdventureEngine.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AdventureEngine.Migrations
 {
     [DbContext(typeof(AdventureDbContext))]
-    partial class AdventureDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251018232938_AddActivationSystem")]
+    partial class AddActivationSystem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
@@ -103,9 +106,6 @@ namespace AdventureEngine.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("DisplayName")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("FailureMessage")
                         .HasColumnType("TEXT");
 
@@ -119,9 +119,6 @@ namespace AdventureEngine.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Keywords")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("LookDescription")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
@@ -147,12 +144,6 @@ namespace AdventureEngine.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("RoomId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowInRoomDescription")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowRevealMessage")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("SuccessMessage")

@@ -24,33 +24,25 @@ public class ExamineCommand : IGameCommand
             return CommandResult.Error("You seem to be nowhere. This is a bug!");
         }
 
-        // Use SemanticResolver to find examinable objects
+        // Use SemanticResolver to find examinable objects (respects IsHidden)
         var resolver = new SemanticResolver(gameState.Context);
-        var examinableObject = await resolver.ResolveExaminableObjectAsync(objectName, room.Id);
-
-        // Check if hidden and not revealed yet
-        if (examinableObject is { IsHidden: true })
-        {
-            if (examinableObject.RevealedByActionId.HasValue)
-            {
-                var isRevealed = await gameState.Context.CompletedActions
-                    .AnyAsync(ca => ca.GameSaveId == gameState.CurrentSaveId &&
-                                    ca.RoomActionId == examinableObject.RevealedByActionId.Value);
-
-                if (!isRevealed)
-                {
-                    examinableObject = null; // Not revealed yet
-                }
-            }
-            else
-            {
-                examinableObject = null; // Hidden with no reveal condition
-            }
-        }
+        var examinableObject = await resolver.ResolveExaminableObjectAsync(objectName, room.Id, gameState);
 
         if (examinableObject != null)
         {
-            return CommandResult.Ok(examinableObject.Description);
+            // Trigger any reveals that examining this object might cause
+            var revealMessages = await gameState.CheckAndRevealExaminableObjectsAsync(
+                triggeredByExaminableId: examinableObject.Id);
+
+            var response = examinableObject.Description;
+
+            // Append reveal messages if any
+            if (revealMessages.Count > 0)
+            {
+                response += "\n\n" + string.Join("\n", revealMessages);
+            }
+
+            return CommandResult.Ok(response);
         }
 
         // Also allow examining items in the room or inventory using semantic resolver

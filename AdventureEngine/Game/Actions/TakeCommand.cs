@@ -73,6 +73,19 @@ public class TakeCommand : IGameCommand
         }
 
         await gameState.AddItemToInventoryAsync(item.Id);
-        return $"Taken: {item.Name}";
+
+        // Check if picking up this item reveals any hidden objects
+        var revealMessages = await gameState.CheckAndRevealExaminableObjectsAsync(
+            triggeredByItemId: item.Id);
+
+        var response = $"Taken: {item.Name}";
+
+        // Append reveal messages if any
+        if (revealMessages.Count > 0)
+        {
+            response += "\n\n" + string.Join("\n", revealMessages);
+        }
+
+        return response;
     }
 }

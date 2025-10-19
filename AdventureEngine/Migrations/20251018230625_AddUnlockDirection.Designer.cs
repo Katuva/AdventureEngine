@@ -3,6 +3,7 @@ using System;
 using AdventureEngine.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,37 +11,14 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AdventureEngine.Migrations
 {
     [DbContext(typeof(AdventureDbContext))]
-    partial class AdventureDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251018230625_AddUnlockDirection")]
+    partial class AddUnlockDirection
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
-
-            modelBuilder.Entity("AdventureEngine.Models.ActivatedExaminableObject", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("ActivatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ExaminableObjectId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("GameSaveId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExaminableObjectId");
-
-                    b.HasIndex("GameSaveId", "ExaminableObjectId")
-                        .IsUnique();
-
-                    b.ToTable("ActivatedExaminableObjects");
-                });
 
             modelBuilder.Entity("AdventureEngine.Models.CompletedAction", b =>
                 {
@@ -96,32 +74,17 @@ namespace AdventureEngine.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("ActivationMessage")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DisplayName")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("FailureMessage")
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("IsActivatable")
-                        .HasColumnType("INTEGER");
-
                     b.Property<bool>("IsHidden")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("IsOneTimeUse")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Keywords")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("LookDescription")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
@@ -131,28 +94,10 @@ namespace AdventureEngine.Migrations
                     b.Property<int?>("RequiredItemId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("RevealMessage")
-                        .HasColumnType("TEXT");
-
                     b.Property<int?>("RevealedByActionId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("RevealedByExaminableId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("RevealedByItemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("RevealsExaminableId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("RoomId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowInRoomDescription")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowRevealMessage")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("SuccessMessage")
@@ -169,12 +114,6 @@ namespace AdventureEngine.Migrations
                     b.HasIndex("RequiredItemId");
 
                     b.HasIndex("RevealedByActionId");
-
-                    b.HasIndex("RevealedByExaminableId");
-
-                    b.HasIndex("RevealedByItemId");
-
-                    b.HasIndex("RevealsExaminableId");
 
                     b.HasIndex("RoomId");
 
@@ -399,31 +338,6 @@ namespace AdventureEngine.Migrations
                     b.HasIndex("LastRoomId");
 
                     b.ToTable("PlayerContexts");
-                });
-
-            modelBuilder.Entity("AdventureEngine.Models.RevealedExaminableObject", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ExaminableObjectId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("GameSaveId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("RevealedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExaminableObjectId");
-
-                    b.HasIndex("GameSaveId", "ExaminableObjectId")
-                        .IsUnique();
-
-                    b.ToTable("RevealedExaminableObjects");
                 });
 
             modelBuilder.Entity("AdventureEngine.Models.Room", b =>
@@ -655,25 +569,6 @@ namespace AdventureEngine.Migrations
                     b.ToTable("Vocabularies");
                 });
 
-            modelBuilder.Entity("AdventureEngine.Models.ActivatedExaminableObject", b =>
-                {
-                    b.HasOne("AdventureEngine.Models.ExaminableObject", "ExaminableObject")
-                        .WithMany()
-                        .HasForeignKey("ExaminableObjectId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("AdventureEngine.Models.GameSave", "GameSave")
-                        .WithMany()
-                        .HasForeignKey("GameSaveId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ExaminableObject");
-
-                    b.Navigation("GameSave");
-                });
-
             modelBuilder.Entity("AdventureEngine.Models.CompletedAction", b =>
                 {
                     b.HasOne("AdventureEngine.Models.GameSave", "GameSave")
@@ -724,21 +619,6 @@ namespace AdventureEngine.Migrations
                         .HasForeignKey("RevealedByActionId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("AdventureEngine.Models.ExaminableObject", "RevealedByExaminable")
-                        .WithMany()
-                        .HasForeignKey("RevealedByExaminableId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("AdventureEngine.Models.Item", "RevealedByItem")
-                        .WithMany()
-                        .HasForeignKey("RevealedByItemId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("AdventureEngine.Models.ExaminableObject", "RevealsExaminable")
-                        .WithMany()
-                        .HasForeignKey("RevealsExaminableId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("AdventureEngine.Models.Room", "Room")
                         .WithMany()
                         .HasForeignKey("RoomId")
@@ -753,12 +633,6 @@ namespace AdventureEngine.Migrations
                     b.Navigation("RequiredItem");
 
                     b.Navigation("RevealedByAction");
-
-                    b.Navigation("RevealedByExaminable");
-
-                    b.Navigation("RevealedByItem");
-
-                    b.Navigation("RevealsExaminable");
 
                     b.Navigation("Room");
 
@@ -892,25 +766,6 @@ namespace AdventureEngine.Migrations
                     b.Navigation("LastMentionedItem");
 
                     b.Navigation("LastRoom");
-                });
-
-            modelBuilder.Entity("AdventureEngine.Models.RevealedExaminableObject", b =>
-                {
-                    b.HasOne("AdventureEngine.Models.ExaminableObject", "ExaminableObject")
-                        .WithMany()
-                        .HasForeignKey("ExaminableObjectId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("AdventureEngine.Models.GameSave", "GameSave")
-                        .WithMany()
-                        .HasForeignKey("GameSaveId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ExaminableObject");
-
-                    b.Navigation("GameSave");
                 });
 
             modelBuilder.Entity("AdventureEngine.Models.Room", b =>

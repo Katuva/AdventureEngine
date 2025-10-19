@@ -23,6 +23,8 @@ public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : 
     public DbSet<ItemState> ItemStates => Set<ItemState>();
     public DbSet<RoomDescription> RoomDescriptions => Set<RoomDescription>();
     public DbSet<VisitedRoom> VisitedRooms => Set<VisitedRoom>();
+    public DbSet<RevealedExaminableObject> RevealedExaminableObjects => Set<RevealedExaminableObject>();
+    public DbSet<ActivatedExaminableObject> ActivatedExaminableObjects => Set<ActivatedExaminableObject>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -172,6 +174,24 @@ public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : 
             .HasForeignKey(eo => eo.UnlocksRoomId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<ExaminableObject>()
+            .HasOne(eo => eo.RevealedByExaminable)
+            .WithMany()
+            .HasForeignKey(eo => eo.RevealedByExaminableId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ExaminableObject>()
+            .HasOne(eo => eo.RevealedByItem)
+            .WithMany()
+            .HasForeignKey(eo => eo.RevealedByItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ExaminableObject>()
+            .HasOne(eo => eo.RevealsExaminable)
+            .WithMany()
+            .HasForeignKey(eo => eo.RevealsExaminableId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Configure CompletedExaminableInteraction
         modelBuilder.Entity<CompletedExaminableInteraction>()
             .HasOne(cei => cei.GameSave)
@@ -281,6 +301,40 @@ public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : 
 
         modelBuilder.Entity<VisitedRoom>()
             .HasIndex(vr => new { vr.GameSaveId, vr.RoomId })
+            .IsUnique();
+
+        // Configure RevealedExaminableObject
+        modelBuilder.Entity<RevealedExaminableObject>()
+            .HasOne(reo => reo.GameSave)
+            .WithMany()
+            .HasForeignKey(reo => reo.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RevealedExaminableObject>()
+            .HasOne(reo => reo.ExaminableObject)
+            .WithMany()
+            .HasForeignKey(reo => reo.ExaminableObjectId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RevealedExaminableObject>()
+            .HasIndex(reo => new { reo.GameSaveId, reo.ExaminableObjectId })
+            .IsUnique();
+
+        // Configure ActivatedExaminableObject
+        modelBuilder.Entity<ActivatedExaminableObject>()
+            .HasOne(aeo => aeo.GameSave)
+            .WithMany()
+            .HasForeignKey(aeo => aeo.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ActivatedExaminableObject>()
+            .HasOne(aeo => aeo.ExaminableObject)
+            .WithMany()
+            .HasForeignKey(aeo => aeo.ExaminableObjectId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ActivatedExaminableObject>()
+            .HasIndex(aeo => new { aeo.GameSaveId, aeo.ExaminableObjectId })
             .IsUnique();
     }
 }

@@ -178,18 +178,33 @@ public class SemanticResolver
 
     /// <summary>
     /// Resolve an examinable object by name/keywords with fuzzy matching support
+    /// Respects IsHidden property and reveal state
     /// </summary>
     public async Task<ExaminableObject?> ResolveExaminableObjectAsync(
         string description,
-        int roomId)
+        int roomId,
+        GameStateManager? gameState = null)
     {
         var lowerDesc = description.ToLower();
 
+        // Get only visible examinable objects (if gameState provided)
+        List<ExaminableObject> candidateObjects;
+        if (gameState != null)
+        {
+            candidateObjects = await gameState.GetVisibleExaminableObjectsAsync(roomId);
+        }
+        else
+        {
+            // Fallback: get all objects (for backward compatibility)
+            candidateObjects = await _context.ExaminableObjects
+                .Where(eo => eo.RoomId == roomId)
+                .ToListAsync();
+        }
+
         // Try exact/contains match first
-        var examinable = await _context.ExaminableObjects
-            .FirstOrDefaultAsync(eo => eo.RoomId == roomId &&
-                                      (eo.Name.ToLower().Contains(lowerDesc) ||
-                                       (eo.Keywords != null && eo.Keywords.ToLower().Contains(lowerDesc))));
+        var examinable = candidateObjects
+            .FirstOrDefault(eo => eo.Name.ToLower().Contains(lowerDesc) ||
+                                 (eo.Keywords != null && eo.Keywords.ToLower().Contains(lowerDesc)));
 
         if (examinable != null)
         {
@@ -197,11 +212,7 @@ public class SemanticResolver
         }
 
         // Try fuzzy matching as fallback
-        var allExaminables = await _context.ExaminableObjects
-            .Where(eo => eo.RoomId == roomId)
-            .ToListAsync();
-
-        foreach (var obj in allExaminables)
+        foreach (var obj in candidateObjects)
         {
             // Check fuzzy match against name
             if (FuzzyMatcher.IsSimilar(lowerDesc, obj.Name, maxDistance: 2))

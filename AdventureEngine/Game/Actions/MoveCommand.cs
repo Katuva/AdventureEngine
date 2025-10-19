@@ -108,7 +108,12 @@ public class MoveCommand(string direction) : IGameCommand
             DebugLogger.Log($"Room '{newRoom.Name}' - IsDeadly={newRoom.IsDeadlyRoom}, Damage={newRoom.DamageAmount}");
         }
 
-        // Check for winning room
-        return newRoom.IsWinningRoom ? CommandResult.Win(newRoom.WinMessage ?? "You won the game!") : CommandResult.Ok(message);
+        // Check for winning room - return the room description as Success, win message will be shown separately
+        if (newRoom.IsWinningRoom)
+        {
+            return CommandResult.Win(newRoom.WinMessage ?? "You won the game!", message);
+        }
+
+        return CommandResult.Ok(message);
     }
 }

@@ -37,3 +37,4 @@ game-config.yaml
 # **/Migrations/
 
 .idea/
+.claude/

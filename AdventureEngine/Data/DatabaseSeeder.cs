@@ -151,7 +151,8 @@ public class DatabaseSeeder(AdventureDbContext context)
             Name = "statue",
             Description = "The gargoyle statue is intricately carved from dark stone. Its eyes seem to follow you around the room. You notice strange symbols etched into its base.",
             Keywords = "gargoyle,symbols,base",
-            IsHidden = false
+            IsHidden = false,
+            ShowInRoomDescription = false  // Not shown in look - must examine specifically
         };
 
         var bookExamine = new ExaminableObject
@@ -160,7 +161,8 @@ public class DatabaseSeeder(AdventureDbContext context)
             Name = "book",
             Description = "The ancient book's cover reads 'Secrets of the Mansion'. Opening it carefully, you read: 'The golden key lies where dreams are made. Those keen of eye will find the hidden door.'",
             Keywords = "ancient book,tome,secrets",
-            IsHidden = false
+            IsHidden = false,
+            ShowInRoomDescription = false  // Not shown in look - must examine specifically
         };
 
         var trapdoorOutline = new ExaminableObject
@@ -168,10 +170,12 @@ public class DatabaseSeeder(AdventureDbContext context)
             RoomId = library.Id,
             Name = "bookshelf",
             Description = "Upon closer inspection of the northern bookshelf, you notice a faint outline behind it. It appears to be concealing a hidden passage! Perhaps with the right key, you could unlock it.",
-            Keywords = "outline,hidden passage,secret door,passage,door,northern bookshelf",
+            Keywords = "outline,hidden passage,secret door,passage,door,northern bookshelf,bookcase",
             IsHidden = false,
+            ShowInRoomDescription = false,  // Not shown in look - must examine specifically
             RequiredItemId = key.Id,
             UnlocksRoomId = secretRoom.Id,
+            UnlockDirection = "up",
             SuccessMessage = "You insert the golden key into a hidden keyhole behind the bookshelf. With a soft click, the entire bookshelf swings open, revealing a secret passage leading upward!",
             FailureMessage = "The bookshelf doesn't budge. Perhaps you need something to unlock it?"
         };
@@ -180,12 +184,70 @@ public class DatabaseSeeder(AdventureDbContext context)
         {
             RoomId = foyer.Id,
             Name = "chandelier",
+            DisplayName = "Chandelier",
             Description = "The magnificent crystal chandelier hangs precariously from rusty chains. Dust covers most of the crystals, but they still catch what little light filters through the windows.",
+            LookDescription = "A magnificent crystal chandelier hangs overhead",
             Keywords = "crystal,chains,crystals",
-            IsHidden = false
+            IsHidden = false,
+            ShowInRoomDescription = true  // Shows in look - obvious feature of the room
         };
 
         context.ExaminableObjects.AddRange(statueExamine, bookExamine, trapdoorOutline, chandelier);
+        await context.SaveChangesAsync();
+
+        // Create hidden examinable objects (revealed by triggers)
+        // First, create the object that will be revealed by the switch
+        var hiddenCompartment = new ExaminableObject
+        {
+            RoomId = bedroom.Id,
+            Name = "compartment",
+            DisplayName = "Floor Compartment",
+            Description = "A hidden compartment in the bedroom floor has opened! Inside, you see a glint of something valuable.",
+            LookDescription = "An open compartment in the floor",
+            Keywords = "hidden compartment,floor panel,secret compartment,panel",
+            IsHidden = true,
+            ShowInRoomDescription = true,  // When revealed, shows in look - it's an obvious opening
+            RevealMessage = "With a grinding sound, a hidden compartment in the bedroom floor slides open!",
+            ShowRevealMessage = false  // Don't show message - switch is in different room
+        };
+
+        context.ExaminableObjects.Add(hiddenCompartment);
+        await context.SaveChangesAsync();
+
+        // Hidden switch revealed by examining the statue - activating it reveals the compartment
+        var hiddenSwitch = new ExaminableObject
+        {
+            RoomId = foyer.Id,
+            Name = "switch",
+            Description = "A small, ornate switch hidden in the statue's base. It appears to be connected to some mechanism in the walls.",
+            Keywords = "lever,button,mechanism,hidden switch",
+            IsHidden = true,
+            ShowInRoomDescription = false,  // Even when revealed, not shown in look - part of statue
+            RevealedByExaminableId = statueExamine.Id,
+            RevealMessage = "As you examine the statue closely, you notice a small switch cleverly concealed among the carved symbols on its base!",
+            IsActivatable = true,
+            IsOneTimeUse = true,
+            ActivationMessage = "You press the hidden switch. You hear a distant grinding sound echo through the mansion!",
+            RevealsExaminableId = hiddenCompartment.Id
+        };
+
+        // Hidden safe revealed by picking up the ancient book
+        var hiddenSafe = new ExaminableObject
+        {
+            RoomId = library.Id,
+            Name = "safe",
+            DisplayName = "Hidden Safe",
+            Description = "Behind where the book was sitting, you discover a small hidden safe built into the desk. It's locked, but doesn't appear to need a key - just the right combination.",
+            LookDescription = "A small safe built into the desk",
+            Keywords = "strongbox,lockbox,vault,hidden safe",
+            IsHidden = true,
+            ShowInRoomDescription = true,  // When revealed, shows in look - it's now obvious
+            RevealedByItemId = book.Id,
+            RevealMessage = "Lifting the ancient book reveals a hidden safe built into the desk beneath it!",
+            ShowRevealMessage = true  // Show message - player is in same room when taking book
+        };
+
+        context.ExaminableObjects.AddRange(hiddenSwitch, hiddenSafe);
         await context.SaveChangesAsync();
 
         // Create conditional room descriptions
@@ -217,20 +279,20 @@ public class DatabaseSeeder(AdventureDbContext context)
         var itemAdjectives = new List<ItemAdjective>
         {
             // Lantern adjectives
-            new ItemAdjective { ItemId = lantern.Id, Adjective = "brass", Priority = 2 },
-            new ItemAdjective { ItemId = lantern.Id, Adjective = "old", Priority = 1 },
+            new() { ItemId = lantern.Id, Adjective = "brass", Priority = 2 },
+            new() { ItemId = lantern.Id, Adjective = "old", Priority = 1 },
 
             // Key adjectives
-            new ItemAdjective { ItemId = key.Id, Adjective = "golden", Priority = 3 },
-            new ItemAdjective { ItemId = key.Id, Adjective = "ornate", Priority = 2 },
+            new() { ItemId = key.Id, Adjective = "golden", Priority = 3 },
+            new() { ItemId = key.Id, Adjective = "ornate", Priority = 2 },
 
             // Book adjectives
-            new ItemAdjective { ItemId = book.Id, Adjective = "ancient", Priority = 2 },
-            new ItemAdjective { ItemId = book.Id, Adjective = "leather", Priority = 1 },
+            new() { ItemId = book.Id, Adjective = "ancient", Priority = 2 },
+            new() { ItemId = book.Id, Adjective = "leather", Priority = 1 },
 
             // Statue adjectives
-            new ItemAdjective { ItemId = statue.Id, Adjective = "stone", Priority = 2 },
-            new ItemAdjective { ItemId = statue.Id, Adjective = "heavy", Priority = 1 }
+            new() { ItemId = statue.Id, Adjective = "stone", Priority = 2 },
+            new() { ItemId = statue.Id, Adjective = "heavy", Priority = 1 }
         };
 
         context.ItemAdjectives.AddRange(itemAdjectives);

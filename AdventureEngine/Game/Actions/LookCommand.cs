@@ -25,10 +25,30 @@ public class LookCommand : IGameCommand
         // Get all items in the room using the helper method
         var allItems = await gameState.GetRoomItemsAsync(room.Id);
 
-        if (allItems.Count != 0)
+        // Get all visible examinable objects that should show in room description
+        var visibleExaminables = await gameState.GetVisibleExaminableObjectsAsync(room.Id);
+        var examinablesToShow = visibleExaminables.Where(eo => eo.ShowInRoomDescription).ToList();
+
+        // Combine items and examinable objects for display
+        var hasItemsOrObjects = allItems.Count > 0 || examinablesToShow.Count > 0;
+
+        if (hasItemsOrObjects)
         {
             description += "\n\nYou can see:";
-            description = allItems.Aggregate(description, (current, item) => current + $"\n  - {item.Name}: {item.Description}");
+
+            // Add items
+            foreach (var item in allItems)
+            {
+                description += $"\n  - {item.Name}: {item.Description}";
+            }
+
+            // Add examinable objects
+            foreach (var examinable in examinablesToShow)
+            {
+                var displayName = examinable.DisplayName ?? examinable.Name;
+                var lookDesc = examinable.LookDescription ?? examinable.Description;
+                description += $"\n  - {displayName}: {lookDesc}";
+            }
         }
 
         // Exits are now shown via the compass display

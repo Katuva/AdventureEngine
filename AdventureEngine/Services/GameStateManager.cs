@@ -305,4 +305,203 @@ public class GameStateManager(AdventureDbContext context)
 
         return originalItems.Concat(placedItems).Distinct().ToList();
     }
+
+    /// <summary>
+    /// Check if an examinable object has been revealed for this save
+    /// </summary>
+    public async Task<bool> IsExaminableRevealedAsync(int examinableObjectId)
+    {
+        return await Context.RevealedExaminableObjects
+            .AnyAsync(reo => reo.GameSaveId == CurrentSaveId && reo.ExaminableObjectId == examinableObjectId);
+    }
+
+    /// <summary>
+    /// Mark an examinable object as revealed for this save
+    /// </summary>
+    public async Task<string?> RevealExaminableObjectAsync(int examinableObjectId)
+    {
+        // Check if already revealed
+        var alreadyRevealed = await IsExaminableRevealedAsync(examinableObjectId);
+        if (alreadyRevealed)
+        {
+            return null; // Already revealed, no message
+        }
+
+        // Mark as revealed
+        var revealed = new RevealedExaminableObject
+        {
+            GameSaveId = CurrentSaveId,
+            ExaminableObjectId = examinableObjectId,
+            RevealedAt = DateTime.UtcNow
+        };
+        Context.RevealedExaminableObjects.Add(revealed);
+        await Context.SaveChangesAsync();
+
+        // Get the examinable object to return its reveal message
+        var examinableObject = await Context.ExaminableObjects.FindAsync(examinableObjectId);
+        return examinableObject?.RevealMessage;
+    }
+
+    /// <summary>
+    /// Check if any examinable objects should be revealed based on a trigger
+    /// Returns any reveal messages that should be displayed (only for objects in current room)
+    /// </summary>
+    public async Task<List<string>> CheckAndRevealExaminableObjectsAsync(
+        int? triggeredByActionId = null,
+        int? triggeredByExaminableId = null,
+        int? triggeredByItemId = null)
+    {
+        var messages = new List<string>();
+        var currentRoom = await GetCurrentRoomAsync();
+        if (currentRoom == null) return messages;
+
+        // Find ALL hidden examinable objects (across all rooms)
+        var hiddenObjects = await Context.ExaminableObjects
+            .Where(eo => eo.IsHidden)
+            .ToListAsync();
+
+        foreach (var obj in hiddenObjects)
+        {
+            // Skip if already revealed
+            if (await IsExaminableRevealedAsync(obj.Id))
+            {
+                continue;
+            }
+
+            // Check if this object should be revealed by the trigger
+            bool shouldReveal = false;
+
+            if (triggeredByActionId.HasValue && obj.RevealedByActionId == triggeredByActionId.Value)
+            {
+                shouldReveal = true;
+            }
+            else if (triggeredByExaminableId.HasValue && obj.RevealedByExaminableId == triggeredByExaminableId.Value)
+            {
+                shouldReveal = true;
+            }
+            else if (triggeredByItemId.HasValue && obj.RevealedByItemId == triggeredByItemId.Value)
+            {
+                shouldReveal = true;
+            }
+
+            if (shouldReveal)
+            {
+                var message = await RevealExaminableObjectAsync(obj.Id);
+
+                // Only add message if:
+                // 1. The revealed object is in the current room
+                // 2. ShowRevealMessage is true
+                // 3. There is a message to show
+                if (message != null && obj.RoomId == currentRoom.Id && obj.ShowRevealMessage)
+                {
+                    messages.Add(message);
+                }
+            }
+        }
+
+        return messages;
+    }
+
+    /// <summary>
+    /// Get all visible examinable objects in a room (respects IsHidden and reveal state)
+    /// </summary>
+    public async Task<List<ExaminableObject>> GetVisibleExaminableObjectsAsync(int roomId)
+    {
+        var allObjects = await Context.ExaminableObjects
+            .Where(eo => eo.RoomId == roomId)
+            .ToListAsync();
+
+        var visibleObjects = new List<ExaminableObject>();
+
+        foreach (var obj in allObjects)
+        {
+            // If not hidden, always visible
+            if (!obj.IsHidden)
+            {
+                visibleObjects.Add(obj);
+                continue;
+            }
+
+            // If hidden, check if revealed
+            if (await IsExaminableRevealedAsync(obj.Id))
+            {
+                visibleObjects.Add(obj);
+            }
+        }
+
+        return visibleObjects;
+    }
+
+    /// <summary>
+    /// Check if an examinable object has been activated for this save
+    /// </summary>
+    public async Task<bool> IsExaminableActivatedAsync(int examinableObjectId)
+    {
+        return await Context.ActivatedExaminableObjects
+            .AnyAsync(aeo => aeo.GameSaveId == CurrentSaveId && aeo.ExaminableObjectId == examinableObjectId);
+    }
+
+    /// <summary>
+    /// Activate an examinable object (e.g., switch, lever, button)
+    /// Returns the activation message and any reveal messages
+    /// </summary>
+    public async Task<(string activationMessage, List<string> revealMessages)> ActivateExaminableObjectAsync(int examinableObjectId)
+    {
+        var examinableObject = await Context.ExaminableObjects.FindAsync(examinableObjectId);
+        if (examinableObject == null)
+        {
+            throw new InvalidOperationException($"ExaminableObject {examinableObjectId} not found");
+        }
+
+        if (!examinableObject.IsActivatable)
+        {
+            throw new InvalidOperationException($"ExaminableObject {examinableObjectId} is not activatable");
+        }
+
+        // Check if already activated and is one-time use
+        if (examinableObject.IsOneTimeUse)
+        {
+            var alreadyActivated = await IsExaminableActivatedAsync(examinableObjectId);
+            if (alreadyActivated)
+            {
+                throw new InvalidOperationException("Already activated");
+            }
+        }
+
+        // Mark as activated
+        var activated = new ActivatedExaminableObject
+        {
+            GameSaveId = CurrentSaveId,
+            ExaminableObjectId = examinableObjectId,
+            ActivatedAt = DateTime.UtcNow
+        };
+        Context.ActivatedExaminableObjects.Add(activated);
+        await Context.SaveChangesAsync();
+
+        // Get activation message
+        var activationMessage = examinableObject.ActivationMessage ??
+            $"You activate the {examinableObject.Name} and you hear a click, but you can't tell if anything happened.";
+
+        // Check if this activation reveals any objects
+        var revealMessages = new List<string>();
+        if (examinableObject.RevealsExaminableId.HasValue)
+        {
+            var revealMessage = await RevealExaminableObjectAsync(examinableObject.RevealsExaminableId.Value);
+
+            // Only show message if revealed object is in current room and ShowRevealMessage is true
+            if (revealMessage != null)
+            {
+                var revealedObject = await Context.ExaminableObjects.FindAsync(examinableObject.RevealsExaminableId.Value);
+                var currentRoom = await GetCurrentRoomAsync();
+
+                if (revealedObject != null && currentRoom != null &&
+                    revealedObject.RoomId == currentRoom.Id && revealedObject.ShowRevealMessage)
+                {
+                    revealMessages.Add(revealMessage);
+                }
+            }
+        }
+
+        return (activationMessage, revealMessages);
+    }
 }
