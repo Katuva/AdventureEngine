@@ -34,6 +34,10 @@ public class ExamineCommand : IGameCommand
             var revealMessages = await gameState.CheckAndRevealExaminableObjectsAsync(
                 triggeredByExaminableId: examinableObject.Id);
 
+            // Also check if any containers should be revealed
+            var containerRevealMessages = await gameState.CheckAndRevealContainersAsync(
+                triggeredByExaminableId: examinableObject.Id);
+
             // Get description based on usage state
             var response = await gameState.GetExaminableObjectDescriptionAsync(examinableObject);
 
@@ -41,6 +45,12 @@ public class ExamineCommand : IGameCommand
             if (revealMessages.Count > 0)
             {
                 response += "\n\n" + string.Join("\n", revealMessages);
+            }
+
+            // Append container reveal messages if any
+            if (containerRevealMessages.Count > 0)
+            {
+                response += "\n\n" + string.Join("\n", containerRevealMessages);
             }
 
             return CommandResult.Ok(response);
@@ -58,6 +68,52 @@ public class ExamineCommand : IGameCommand
             // Get description based on usage state
             var description = await gameState.GetItemDescriptionAsync(item);
             return CommandResult.Ok(description);
+        }
+
+        // Check for containers
+        var containers = await gameState.Context.Containers
+            .Where(c => c.RoomId == room.Id)
+            .ToListAsync();
+
+        var container = containers.FirstOrDefault(c =>
+            c.Name.ToLower() == objectName ||
+            (c.Keywords != null && c.Keywords.ToLower().Split(',').Any(k => k.Trim() == objectName)));
+
+        if (container != null)
+        {
+            var state = await gameState.Context.ContainerStates
+                .FirstOrDefaultAsync(cs => cs.GameSaveId == gameState.CurrentSaveId && cs.ContainerId == container.Id);
+
+            var response = container.Description;
+
+            if (state != null && state.IsOpen)
+            {
+                var containerItems = await gameState.Context.ContainerItems
+                    .Include(ci => ci.Item)
+                    .Where(ci => ci.ContainerId == container.Id)
+                    .ToListAsync();
+
+                if (containerItems.Count > 0)
+                {
+                    var itemNames = string.Join(", ", containerItems.Select(ci => ci.Item.Name));
+                    response += $"\n\nThe {container.Name} is open and contains: {itemNames}";
+                }
+                else
+                {
+                    var emptyMsg = container.EmptyDescription ?? "empty";
+                    response += $"\n\nThe {container.Name} is open and {emptyMsg}";
+                }
+            }
+            else if (state != null && state.IsLocked)
+            {
+                response += $"\n\nThe {container.Name} is locked.";
+            }
+            else
+            {
+                response += $"\n\nThe {container.Name} is closed.";
+            }
+
+            return CommandResult.Ok(response);
         }
 
         return CommandResult.Error($"You don't see anything special about '{objectName}'.");

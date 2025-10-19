@@ -454,6 +454,119 @@ public class GameStateManager(AdventureDbContext context, GameConfiguration conf
     }
 
     /// <summary>
+    /// Check if any containers should be revealed based on an examinable object trigger
+    /// Returns any reveal messages that should be displayed (only for containers in current room)
+    /// </summary>
+    public async Task<List<string>> CheckAndRevealContainersAsync(int? triggeredByExaminableId = null)
+    {
+        var messages = new List<string>();
+        var currentRoom = await GetCurrentRoomAsync();
+        if (currentRoom == null) return messages;
+
+        // Find ALL hidden containers (across all rooms)
+        var hiddenContainers = await Context.Containers
+            .Where(c => c.IsHidden)
+            .ToListAsync();
+
+        foreach (var container in hiddenContainers)
+        {
+            // Skip if already revealed
+            if (await IsContainerRevealedAsync(container.Id))
+            {
+                continue;
+            }
+
+            // Check if this container should be revealed by the trigger
+            bool shouldReveal = false;
+
+            if (triggeredByExaminableId.HasValue && container.RevealedByExaminableId == triggeredByExaminableId.Value)
+            {
+                shouldReveal = true;
+            }
+
+            if (shouldReveal)
+            {
+                var message = await RevealContainerAsync(container.Id);
+
+                // Only add message if:
+                // 1. The revealed container is in the current room
+                // 2. There is a message to show
+                if (message != null && container.RoomId == currentRoom.Id)
+                {
+                    messages.Add(message);
+                }
+            }
+        }
+
+        return messages;
+    }
+
+    /// <summary>
+    /// Check if a container has been revealed for this save
+    /// </summary>
+    public async Task<bool> IsContainerRevealedAsync(int containerId)
+    {
+        return await Context.ContainerRevealed
+            .AnyAsync(cr => cr.GameSaveId == CurrentSaveId && cr.ContainerId == containerId);
+    }
+
+    /// <summary>
+    /// Reveal a container and return its reveal message
+    /// </summary>
+    public async Task<string?> RevealContainerAsync(int containerId)
+    {
+        // Check if already revealed
+        if (await IsContainerRevealedAsync(containerId))
+        {
+            return null;
+        }
+
+        // Mark as revealed
+        var revealed = new ContainerRevealed
+        {
+            GameSaveId = CurrentSaveId,
+            ContainerId = containerId,
+            RevealedAt = DateTime.UtcNow
+        };
+        Context.ContainerRevealed.Add(revealed);
+        await Context.SaveChangesAsync();
+
+        // Get the container to return its reveal message
+        var container = await Context.Containers.FindAsync(containerId);
+        return container?.RevealMessage;
+    }
+
+    /// <summary>
+    /// Get all visible containers in a room (respects IsHidden and reveal state)
+    /// </summary>
+    public async Task<List<Container>> GetVisibleContainersAsync(int roomId)
+    {
+        var allContainers = await Context.Containers
+            .Where(c => c.RoomId == roomId)
+            .ToListAsync();
+
+        var visibleContainers = new List<Container>();
+
+        foreach (var container in allContainers)
+        {
+            // If not hidden, always visible
+            if (!container.IsHidden)
+            {
+                visibleContainers.Add(container);
+                continue;
+            }
+
+            // If hidden, check if revealed
+            if (await IsContainerRevealedAsync(container.Id))
+            {
+                visibleContainers.Add(container);
+            }
+        }
+
+        return visibleContainers;
+    }
+
+    /// <summary>
     /// Check if an examinable object has been activated for this save
     /// </summary>
     public async Task<bool> IsExaminableActivatedAsync(int examinableObjectId)

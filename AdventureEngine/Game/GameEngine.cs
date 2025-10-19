@@ -48,6 +48,10 @@ public class GameEngine
         _commandRegistry.RegisterCommand(new LightCommand());
         _commandRegistry.RegisterCommand(new ExtinguishCommand());
         _commandRegistry.RegisterCommand(new ActivateCommand());
+        _commandRegistry.RegisterCommand(new OpenCommand());
+        _commandRegistry.RegisterCommand(new CloseCommand());
+        _commandRegistry.RegisterCommand(new LockCommand());
+        _commandRegistry.RegisterCommand(new UnlockCommand());
         _commandRegistry.RegisterCommand(new HelpCommand(_commandRegistry));
         _commandRegistry.RegisterCommand(new QuitCommand());
 

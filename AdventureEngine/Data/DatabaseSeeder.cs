@@ -326,6 +326,48 @@ public class DatabaseSeeder(AdventureDbContext context)
         context.ExaminableObjects.AddRange(hiddenSwitch, hiddenSafe, healingFountain, magicalHerbs);
         await context.SaveChangesAsync();
 
+        // Create treasure item
+        var treasure = new Item
+        {
+            Name = "Golden Amulet",
+            Description = "An exquisite golden amulet encrusted with precious gems. It glows with an otherworldly light.",
+            IsCollectable = true,
+            IsQuestItem = true
+        };
+
+        context.Items.Add(treasure);
+        await context.SaveChangesAsync();
+
+        // Create treasure chest in the hidden compartment
+        var treasureChest = new Container
+        {
+            RoomId = bedroom.Id,
+            Name = "chest",
+            DisplayName = "Ornate Chest",
+            Description = "A beautifully crafted wooden chest with intricate carvings of mythical creatures. The wood is dark and polished to a deep shine.",
+            Keywords = "box,treasure chest,ornate chest",
+            EmptyDescription = "nothing but dust",
+            StartsOpen = false,
+            IsLockable = false,
+            ShowInRoomDescription = true,  // Shows when revealed
+            IsHidden = true,  // Starts hidden
+            RevealedByExaminableId = hiddenCompartment.Id,  // Revealed when compartment is examined
+            RevealMessage = "Inside the hidden compartment, you spot an ornate chest!"
+        };
+
+        context.Containers.Add(treasureChest);
+        await context.SaveChangesAsync();
+
+        // Put treasure inside the chest
+        var chestItem = new ContainerItem
+        {
+            ContainerId = treasureChest.Id,
+            ItemId = treasure.Id
+        };
+
+        context.ContainerItems.Add(chestItem);
+        await context.SaveChangesAsync();
+
         // Create conditional room descriptions
         // Cellar with lit lantern (high priority)
         var cellarLitDescription = new RoomDescription

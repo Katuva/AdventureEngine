@@ -44,6 +44,7 @@ public class TakeCommand : IGameCommand
         }
 
         // Use SemanticResolver to find the item with adjective support
+        // This now includes items from open containers automatically
         var resolver = new SemanticResolver(gameState.Context);
         var item = await resolver.ResolveItemAsync(
             itemName,
@@ -61,15 +62,37 @@ public class TakeCommand : IGameCommand
             return $"You can't take the {item.Name}.";
         }
 
-        // Check if this is a placed item and remove it
-        var placedItem = await gameState.Context.PlacedItems
-            .FirstOrDefaultAsync(pi => pi.GameSaveId == gameState.CurrentSaveId &&
-                                      pi.ItemId == item.Id &&
-                                      pi.RoomId == room.Id);
+        // Check if this item is in an open container in the room
+        var openContainers = await gameState.Context.ContainerStates
+            .Where(cs => cs.GameSaveId == gameState.CurrentSaveId && cs.IsOpen)
+            .Select(cs => cs.ContainerId)
+            .ToListAsync();
 
-        if (placedItem != null)
+        var roomContainers = await gameState.Context.Containers
+            .Where(c => c.RoomId == room.Id && openContainers.Contains(c.Id))
+            .Select(c => c.Id)
+            .ToListAsync();
+
+        var containerItem = await gameState.Context.ContainerItems
+            .FirstOrDefaultAsync(ci => roomContainers.Contains(ci.ContainerId) && ci.ItemId == item.Id);
+
+        // Remove from container if found there
+        if (containerItem != null)
         {
-            gameState.Context.PlacedItems.Remove(placedItem);
+            gameState.Context.ContainerItems.Remove(containerItem);
+        }
+        else
+        {
+            // Check if this is a placed item and remove it
+            var placedItem = await gameState.Context.PlacedItems
+                .FirstOrDefaultAsync(pi => pi.GameSaveId == gameState.CurrentSaveId &&
+                                          pi.ItemId == item.Id &&
+                                          pi.RoomId == room.Id);
+
+            if (placedItem != null)
+            {
+                gameState.Context.PlacedItems.Remove(placedItem);
+            }
         }
 
         // Track that this item has been picked up (so it won't appear in original room anymore)

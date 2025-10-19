@@ -29,6 +29,10 @@ public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : 
     public DbSet<ExaminableObjectUsage> ExaminableObjectUsages => Set<ExaminableObjectUsage>();
     public DbSet<RemovedItem> RemovedItems => Set<RemovedItem>();
     public DbSet<PickedUpItem> PickedUpItems => Set<PickedUpItem>();
+    public DbSet<Container> Containers => Set<Container>();
+    public DbSet<ContainerItem> ContainerItems => Set<ContainerItem>();
+    public DbSet<ContainerState> ContainerStates => Set<ContainerState>();
+    public DbSet<ContainerRevealed> ContainerRevealed => Set<ContainerRevealed>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -414,6 +418,66 @@ public class AdventureDbContext(DbContextOptions<AdventureDbContext> options) : 
 
         modelBuilder.Entity<PickedUpItem>()
             .HasIndex(pui => new { pui.GameSaveId, pui.ItemId })
+            .IsUnique();
+
+        // Configure Container
+        modelBuilder.Entity<Container>()
+            .HasOne(c => c.Room)
+            .WithMany()
+            .HasForeignKey(c => c.RoomId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Container>()
+            .HasOne(c => c.KeyItem)
+            .WithMany()
+            .HasForeignKey(c => c.KeyItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Configure ContainerItem
+        modelBuilder.Entity<ContainerItem>()
+            .HasOne(ci => ci.Container)
+            .WithMany(c => c.ContainerItems)
+            .HasForeignKey(ci => ci.ContainerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ContainerItem>()
+            .HasOne(ci => ci.Item)
+            .WithMany()
+            .HasForeignKey(ci => ci.ItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Configure ContainerState
+        modelBuilder.Entity<ContainerState>()
+            .HasOne(cs => cs.GameSave)
+            .WithMany()
+            .HasForeignKey(cs => cs.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ContainerState>()
+            .HasOne(cs => cs.Container)
+            .WithMany()
+            .HasForeignKey(cs => cs.ContainerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ContainerState>()
+            .HasIndex(cs => new { cs.GameSaveId, cs.ContainerId })
+            .IsUnique();
+
+        // Configure ContainerRevealed
+        modelBuilder.Entity<ContainerRevealed>()
+            .HasOne(cr => cr.GameSave)
+            .WithMany()
+            .HasForeignKey(cr => cr.GameSaveId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ContainerRevealed>()
+            .HasOne(cr => cr.Container)
+            .WithMany()
+            .HasForeignKey(cr => cr.ContainerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ContainerRevealed>()
+            .HasIndex(cr => new { cr.GameSaveId, cr.ContainerId })
             .IsUnique();
     }
 }

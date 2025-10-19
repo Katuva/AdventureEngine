@@ -300,6 +300,25 @@ public class SemanticResolver
                 // Use GameStateManager's centralized method that handles picked up, removed, and placed items
                 var roomItems = await gameState.GetRoomItemsAsync(room.Id);
                 items.AddRange(roomItems);
+
+                // Also include items from open containers in the room
+                var openContainers = await _context.ContainerStates
+                    .Where(cs => cs.GameSaveId == gameState.CurrentSaveId && cs.IsOpen)
+                    .Select(cs => cs.ContainerId)
+                    .ToListAsync();
+
+                var roomContainers = await _context.Containers
+                    .Where(c => c.RoomId == room.Id && openContainers.Contains(c.Id))
+                    .Select(c => c.Id)
+                    .ToListAsync();
+
+                var containerItems = await _context.ContainerItems
+                    .Include(ci => ci.Item)
+                    .Where(ci => roomContainers.Contains(ci.ContainerId))
+                    .Select(ci => ci.Item)
+                    .ToListAsync();
+
+                items.AddRange(containerItems);
             }
         }
 
